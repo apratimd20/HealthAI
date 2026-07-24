@@ -1,0 +1,62 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    sans-serif;
+  --color-surface-base: #09090b;
+  --color-surface-muted: #0e0e11;
+  --color-surface-card: #18181b;
+  --color-surface-card-hover: #202024;
+  --color-border-default: #27272a;
+  --color-brand: #10b981;
+  --color-brand-hover: #34d399;
+  --color-fg: #fafafa;
+  --color-fg-muted: #a1a1aa;
+  --color-fg-subtle: #71717a;
+  --color-danger: #ef4444;
+  --color-water: #3b82f6;
+  --color-sleep: #8b5cf6;
+  --color-calories: #f59e0b;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 20px;
+}
+
+@layer base {
+  body {
+    @apply bg-surface-base text-fg font-sans antialiased overflow-x-hidden;
+  }
+
+  #root {
+    @apply min-h-svh w-full;
+  }
+
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    @apply bg-surface-base;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply bg-border-default rounded-full;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-fg-subtle;
+  }
+}
+
+@utility glass-panel {
+  background: rgba(24, 24, 27, 0.7);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+@utility form-select {
+  @apply w-full rounded-md border border-border-default bg-surface-base px-3 py-2.5 text-sm text-fg transition-colors;
+  @apply focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand;
+}
