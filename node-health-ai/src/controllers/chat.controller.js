@@ -2,6 +2,7 @@
 import Goal from "../models/goal.models.js";
 import User from "../models/user.models.js";
 import { generateChatResponse, generateHealthChatStream } from "../services/chat.services.js";
+import { pythonAIService } from "../services/pythonAIService.js";
 
 // Regular (non-streaming) chat
 export const chatWithAI = async (req, res) => {
@@ -38,7 +39,6 @@ export const chatWithAI = async (req, res) => {
     }
 };
 
-// Streaming chat
 export const chatWithAIStream = async (req, res) => {
     try {
         const { message } = req.body;
@@ -50,24 +50,41 @@ export const chatWithAIStream = async (req, res) => {
             });
         }
 
-        // Get user context
-        const user = await User.findById(req.user._id);
-        const goal = await Goal.findOne({
-            user: req.user._id,
-            status: "active",
-        });
+        // ✅ Get token from request headers
+        const token = req.headers.token || req.headers.authorization?.split(' ')[1];
 
-        // Set up SSE headers for streaming
+        if (!token) {
+            return res.status(401).json({
+                success: false,
+                message: "Authentication required",
+            });
+        }
+
+        // Set up SSE headers
         res.setHeader('Content-Type', 'text/event-stream');
         res.setHeader('Cache-Control', 'no-cache');
         res.setHeader('Connection', 'keep-alive');
         res.setHeader('X-Accel-Buffering', 'no');
 
-        // Send initial status
-        res.write(`event: status\ndata: ${JSON.stringify({ message: '🤖 Health AI is thinking...' })}\n\n`);
+        // ✅ Pass token to service
+        const pythonResponse = await pythonAIService.sendMessageStream(message, token);
+        
+        if (!pythonResponse || !pythonResponse.body) {
+            throw new Error('Failed to get response from AI service');
+        }
 
-        // Generate streaming response
-        await generateHealthChatStream(message, user, goal, res);
+        const reader = pythonResponse.body.getReader();
+        const decoder = new TextDecoder();
+
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            
+            const chunk = decoder.decode(value);
+            res.write(chunk);
+        }
+
+        res.end();
 
     } catch (error) {
         console.error('Stream chat error:', error);

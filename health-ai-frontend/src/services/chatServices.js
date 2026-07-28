@@ -7,7 +7,7 @@ export const chatService = {
     return response.data;
   },
 
-  // ✅ Updated streaming method with proper event handling
+  // ✅ Fixed streaming method with proper event parsing
   sendMessageStream: async (message, onStatus, onChunk, onComplete, onError) => {
     try {
       const token = localStorage.getItem('token');
@@ -20,52 +20,58 @@ export const chatService = {
         body: JSON.stringify({ message }),
       });
 
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
       let buffer = '';
+      let currentEvent = '';
 
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
 
         buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split('\n\n');
+        const lines = buffer.split('\n');
         buffer = lines.pop() || '';
 
         for (const line of lines) {
           if (line.startsWith('event: ')) {
-            const eventType = line.split('event: ')[1].trim();
-            // Find the data line
-            const dataLines = lines.filter(l => l.startsWith('data: '));
-            const dataLine = dataLines[dataLines.length - 1];
-            
-            if (dataLine && dataLine.startsWith('data: ')) {
-              try {
-                const jsonStr = dataLine.replace('data: ', '');
-                const data = JSON.parse(jsonStr);
-                
-                switch (eventType) {
-                  case 'status':
-                    if (onStatus) onStatus(data);
-                    break;
-                  case 'chunk':
-                    if (onChunk) onChunk(data);
-                    break;
-                  case 'complete':
-                    if (onComplete) onComplete(data);
-                    break;
-                  case 'error':
-                    if (onError) onError(data);
-                    break;
-                  case 'done':
-                    // Stream finished
-                    break;
-                  default:
-                    break;
-                }
-              } catch (e) {
-                console.error('Parse error for event:', eventType, e);
+            currentEvent = line.replace('event: ', '').trim();
+          } else if (line.startsWith('data: ')) {
+            try {
+              const jsonStr = line.replace('data: ', '');
+              const data = JSON.parse(jsonStr);
+              
+              // Dispatch based on current event
+              switch (currentEvent) {
+                case 'status':
+                  if (onStatus) onStatus(data);
+                  break;
+                case 'chunk':
+                  if (onChunk) onChunk(data);
+                  break;
+                case 'complete':
+                  if (onComplete) onComplete(data);
+                  break;
+                case 'error':
+                  if (onError) onError(data);
+                  break;
+                case 'done':
+                  // Stream finished
+                  break;
+                default:
+                  // Try to infer event from data
+                  if (data.chunk !== undefined && onChunk) {
+                    onChunk(data);
+                  } else if (data.message !== undefined && onStatus) {
+                    onStatus(data);
+                  }
               }
+            } catch (e) {
+              console.error('Parse error for line:', line, e);
             }
           }
         }

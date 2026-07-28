@@ -60,3 +60,12 @@
   @apply w-full rounded-md border border-border-default bg-surface-base px-3 py-2.5 text-sm text-fg transition-colors;
   @apply focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand;
 }
+
+/* Hide scrollbar for nav */
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}

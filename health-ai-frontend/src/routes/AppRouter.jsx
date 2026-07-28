@@ -1,9 +1,11 @@
+// routes/AppRouter.jsx
 import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { ProtectedRoute, PublicRoute } from './ProtectedRoute';
 import Login from '../pages/Login';
 import Register from '../pages/Register';
 import Dashboard from '../pages/Dashboard';
+import Feed from '../pages/Feed'; // ✅ Add Feed import
 
 export default function AppRouter() {
   return (
@@ -30,6 +32,16 @@ export default function AppRouter() {
         element={
           <ProtectedRoute>
             <Dashboard />
+          </ProtectedRoute>
+        }
+      />
+
+      {/* ✅ Add Feed Route */}
+      <Route
+        path="/feed"
+        element={
+          <ProtectedRoute>
+            <Feed />
           </ProtectedRoute>
         }
       />

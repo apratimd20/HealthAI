@@ -1,99 +1,148 @@
 // src/context/AuthContext.jsx
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { healthService } from '../services/healthService';
 import { userService } from '../services/userService';
 
 const AuthContext = createContext(null);
 
-
 export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);
     const [token, setToken] = useState(localStorage.getItem('token'));
-    const [hasActiveGoal, setHasActiveGoal] = useState(null); // null means not checked yet
+    const [hasActiveGoal, setHasActiveGoal] = useState(null);
     const [loading, setLoading] = useState(true);
+    
+    // ✅ Track if authentication is confirmed
+    const [isAuthenticated, setIsAuthenticated] = useState(false);
 
-    const checkGoalStatus = async () => {
+    // ============ FETCH USER PROFILE ============
+    const fetchUserProfile = useCallback(async () => {
+        try {
+            const response = await userService.getProfile();
+            if (response.success) {
+                setUser(response.data);
+                setIsAuthenticated(true); // ✅ Set authenticated
+                return true;
+            }
+            return false;
+        } catch (error) {
+            console.error('Failed to fetch profile:', error);
+            if (error.response?.status === 401) {
+                localStorage.removeItem('token');
+                setToken(null);
+                setUser(null);
+                setIsAuthenticated(false);
+            }
+            return false;
+        }
+    }, []);
+
+    // ============ CHECK ACTIVE GOAL ============
+    const checkGoalStatus = useCallback(async () => {
         try {
             const response = await healthService.getActiveGoal();
             if (response.success && response.data) {
                 setHasActiveGoal(true);
+                return true;
             } else {
                 setHasActiveGoal(false);
+                return false;
             }
         } catch (error) {
-            // If 404 or other error, goal is not active or token expired
-            if (error.response && error.response.status === 404) {
+            if (error.response?.status === 404) {
                 setHasActiveGoal(false);
             } else {
                 setHasActiveGoal(false);
             }
+            return false;
         }
-    };
+    }, []);
 
-    const fetchUserProfile = async () => {
-    try {
-        const response = await userService.getProfile();
-
-        if (response.success) {
-            setUser(response.data);
-        }
-    } catch (error) {
-        console.error(error);
-    }
-};
-
-
+    // ============ INITIALIZE AUTH ============
     useEffect(() => {
         const initializeAuth = async () => {
+            setLoading(true);
+            
             const storedToken = localStorage.getItem('token');
+            
             if (storedToken) {
                 setToken(storedToken);
-                // Determine user details from somewhere or fetch active goal (this also acts as active session check)
-                await checkGoalStatus();
+                const userFetched = await fetchUserProfile();
+                
+                if (userFetched) {
+                    await checkGoalStatus();
+                } else {
+                    localStorage.removeItem('token');
+                    setToken(null);
+                    setUser(null);
+                    setIsAuthenticated(false);
+                    setHasActiveGoal(false);
+                }
             } else {
                 setToken(null);
+                setUser(null);
+                setIsAuthenticated(false);
                 setHasActiveGoal(false);
             }
+            
             setLoading(false);
         };
 
         initializeAuth();
-    }, [token]);
+    }, []);
 
-    const login = async (newToken) => {
+    // ============ LOGIN ============
+    const login = useCallback(async (newToken) => {
+        setLoading(true);
         localStorage.setItem('token', newToken);
         setToken(newToken);
+        
+        const userFetched = await fetchUserProfile();
+        if (userFetched) {
+            await checkGoalStatus();
+            setIsAuthenticated(true);
+        }
+        
+        setLoading(false);
+    }, [fetchUserProfile, checkGoalStatus]);
+
+    // ============ LOGOUT ============
+    const logout = useCallback(() => {
+        localStorage.removeItem('token');
+        setToken(null);
+        setUser(null);
+        setIsAuthenticated(false);
+        setHasActiveGoal(false);
+    }, []);
+
+    // ============ UPDATE GOAL STATUS ============
+    const updateGoalStatus = useCallback((status) => {
+        setHasActiveGoal(status);
+    }, []);
+
+    // ============ REFRESH USER DATA ============
+    const refreshUser = useCallback(async () => {
         setLoading(true);
         await fetchUserProfile();
         await checkGoalStatus();
         setLoading(false);
-    };
+    }, [fetchUserProfile, checkGoalStatus]);
 
-    const logout = () => {
-        localStorage.removeItem('token');
-        setToken(null);
-        setHasActiveGoal(false);
-        setUser(null);
-    };
-
-    const updateGoalStatus = (status) => {
-        setHasActiveGoal(status);
+    // ============ CONTEXT VALUE ============
+    const value = {
+        user,
+        token,
+        isAuthenticated, 
+        hasActiveGoal,
+        loading,
+        login,
+        logout,
+        updateGoalStatus,
+        checkGoalStatus,
+        refreshUser,
     };
 
     return (
-        <AuthContext.Provider
-            value={{
-                token,
-                 user,
-                isAuthenticated: !!token,
-                hasActiveGoal,
-                loading,
-                login,
-                logout,
-                updateGoalStatus,
-                checkGoalStatus,
-            }}
-        >
+        <AuthContext.Provider value={value}>
             {children}
         </AuthContext.Provider>
     );
@@ -106,3 +155,5 @@ export const useAuth = () => {
     }
     return context;
 };
+
+export default AuthContext;

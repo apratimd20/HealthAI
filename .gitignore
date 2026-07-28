@@ -26,3 +26,130 @@ coverage/
 # Temporary files
 *.tmp
 *.cache
+
+# ===== PYTHON AI SERVICES =====
+
+# Python virtual environments
+**/venv
+**/env
+**/virtualenv
+**/.venv
+**/python-env
+**/pyenv
+**/myenv
+
+
+# Python bytecode and cache
+**/__pycache__/
+**/*.py[cod]
+**/*$py.class
+**/*.pyo
+**/*.pyd
+
+# Python distribution / packaging
+**/.Python
+**/build/
+**/develop-eggs/
+**/dist/
+**/downloads/
+**/eggs/
+**/.eggs/
+**/lib/
+**/lib64/
+**/parts/
+**/sdist/
+**/var/
+**/wheels/
+**/*.egg-info/
+**/.installed.cfg
+**/*.egg
+
+# PyInstaller
+**/*.manifest
+**/*.spec
+
+# Installer logs
+**/pip-log.txt
+**/pip-delete-this-directory.txt
+
+# Unit test / coverage reports
+**/htmlcov/
+**/.tox/
+**/.nox/
+**/.coverage
+**/.coverage.*
+**/.cache
+**/nosetests.xml
+**/coverage.xml
+**/*.cover
+**/*.py,cover
+**/.hypothesis/
+**/.pytest_cache/
+
+# Jupyter Notebooks (if using)
+**/.ipynb_checkpoints/
+**/*.ipynb
+
+# PySpark (if using)
+**/spark-warehouse/
+
+# ML/AI specific
+**/models/
+**/checkpoints/
+**/*.h5
+**/*.hdf5
+**/*.pkl
+**/*.pickle
+**/*.joblib
+**/*.pb
+**/*.onnx
+**/*.pt
+**/*.pth
+**/*.ckpt
+**/tensorboard_logs/
+**/logs/
+**/runs/
+
+# Data files (if not tracking)
+**/*.csv
+**/*.parquet
+**/*.feather
+**/*.arrow
+**/*.jsonl
+**/*.db
+**/*.sqlite
+**/*.sqlite3
+
+# Large data files (common in AI)
+**/*.npy
+**/*.npz
+**/data/
+**/datasets/
+**/dataset/
+**/sample_data/
+
+# IDE specific
+**/.idea/
+**/*.iml
+
+# Secrets and credentials
+**/secrets/
+**/credentials/
+**/keys/
+**/*.pem
+**/*.key
+**/*.crt
+**/service-account.json
+**/*-credentials.json
+
+# Docker (if using)
+**/.dockerignore
+**/Dockerfile
+
+# Environment variables
+**/.flaskenv
+**/.env.*
+!**.env.example
+
+# Python version
+**/pyvenv.cfg
