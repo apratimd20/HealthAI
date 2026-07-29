@@ -94,7 +94,6 @@ coverage/
 **/spark-warehouse/
 
 # ML/AI specific
-**/models/
 **/checkpoints/
 **/*.h5
 **/*.hdf5
