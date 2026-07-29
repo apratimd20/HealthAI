@@ -2,7 +2,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from core.config import config
+from .core.config import config
 from api.routes import health, chat, food  
 from services.ai_service import ai_service
 import logging
