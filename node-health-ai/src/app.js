@@ -9,12 +9,29 @@ import postRouter from './routes/post.route.js'
 
 const app = express()
 
+// ✅ UPDATED CORS SETUP WITH YOUR LIVE VERCEL URL
+const allowedOrigins = [
+    'http://localhost:3000',                 // For local React testing
+    'http://localhost:5173',                 // For local Vite testing
+    'https://health-ai-wine.vercel.app'      // 🟢 YOUR LIVE FRONTEND URL
+];
+
 app.use(cors({
-    origin: '*',  // Allow any origin
-    credentials: true,
+    origin: function (origin, callback) {
+        // Allow requests with no origin (like mobile apps or curl)
+        if (!origin) return callback(null, true);
+        
+        if (allowedOrigins.indexOf(origin) !== -1) {
+            callback(null, true);
+        } else {
+            callback(new Error('Not allowed by CORS'));
+        }
+    },
+    credentials: true,  // Important for sending auth tokens
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'token'],
-}))
+}));
+
 app.use(express.json())
 
 app.get('/',(req,res)=>{
