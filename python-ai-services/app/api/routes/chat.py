@@ -7,10 +7,11 @@ import asyncio
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 
-from app.models.schemas import ChatRequest
-from app.services.response_service import response_service
-from app.services.ai_service import ai_service
-from app.utils.helpers import create_response_data, create_success_response
+
+from ..models.schemas import ChatRequest
+from ..services.response_service import response_service
+from ..services.ai_service import ai_service
+from ..utils.helpers import create_response_data, create_success_response
 
 router = APIRouter()
 
