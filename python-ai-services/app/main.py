@@ -32,12 +32,8 @@ async def health_check():
     """Health check endpoint"""
     return {
         "status": "healthy",
-        "service": config.APP_NAME,
-        "version": config.APP_VERSION,
-        "model": {
-            "name": config.MODEL_NAME,
-            "loaded": ai_service.is_available()
-        }
+        "service": "Health AI Service",
+        "version":"1.0.0",
     }
 
 
