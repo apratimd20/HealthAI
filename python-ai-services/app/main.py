@@ -3,8 +3,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from .core.config import config
-from api.routes import health, chat, food  
-from services.ai_service import ai_service
+from .api.routes import health, chat, food  
+from .services.ai_service import ai_service
 import logging
 
 logging.basicConfig(level=getattr(logging, config.LOG_LEVEL))
