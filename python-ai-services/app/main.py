@@ -27,10 +27,24 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+@app.get("/health")
+async def health_check():
+    """Health check endpoint"""
+    return {
+        "status": "healthy",
+        "service": config.APP_NAME,
+        "version": config.APP_VERSION,
+        "model": {
+            "name": config.MODEL_NAME,
+            "loaded": ai_service.is_available()
+        }
+    }
+
+
 # Include routers
 app.include_router(health.router, prefix=config.API_PREFIX)
 app.include_router(chat.router, prefix=config.API_PREFIX)
-app.include_router(food.router, prefix=config.API_PREFIX)  # ✅ Add food
+app.include_router(food.router, prefix=config.API_PREFIX)  
 
 @app.on_event("startup")
 async def startup_event():
