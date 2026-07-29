@@ -7,7 +7,7 @@ export const pythonAIService = {
     // Non-streaming chat
     sendMessage: async (message, token) => {
         try {
-            const response = await axios.post(`${PYTHON_AI_URL}api/v1/chat`, {
+            const response = await axios.post(`${PYTHON_AI_URL}/api/v1/chat`, {
                 message
             }, {
                 headers: {
@@ -23,7 +23,7 @@ export const pythonAIService = {
 
     // Streaming chat
     sendMessageStream: async (message, token) => {
-        const response = await fetch(`${PYTHON_AI_URL}api/v1/chat-stream`, {
+        const response = await fetch(`${PYTHON_AI_URL}/api/v1/chat-stream`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
