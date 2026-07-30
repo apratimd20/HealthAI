@@ -1,0 +1,18 @@
+{
+  "name": "Health AI - Smart Health & Diet Tracker",
+  "short_name": "Health AI",
+  "description": "AI-powered personalized diet, fitness, hydration and health tracking assistant.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0B0F19",
+  "theme_color": "#10B981",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
