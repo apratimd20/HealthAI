@@ -36,5 +36,16 @@ export const healthService = {
     getNotifications: async (hour) => {
         const response = await api.get(`/health/notifications?hour=${hour}`);
         return response.data;
+    },
+
+    // Push notification methods
+    subscribeToPush: async (subscription) => {
+        const response = await api.post('/notifications/subscribe', { subscription });
+        return response.data;
+    },
+
+    sendTestNotification: async () => {
+        const response = await api.post('/notifications/test');
+        return response.data;
     }
 };

@@ -33,6 +33,7 @@ import {
   IoFitnessOutline,
 } from 'react-icons/io5';
 import toast from 'react-hot-toast';
+import { notificationService } from '../services/notificationService';
 
 export default function Dashboard() {
   const { updateGoalStatus } = useAuth();
@@ -196,6 +197,49 @@ export default function Dashboard() {
         onClose={() => setIsScannerOpen(false)}
         onScanComplete={handleScanComplete}
       />
+
+{/* Request Permission Button */}
+{/* <Button 
+  size="sm" 
+  variant="primary"
+  onClick={async () => {
+    try {
+      toast.loading('Requesting notification permission...');
+      
+      // Request permission
+      const permission = await Notification.requestPermission();
+      console.log('Permission result:', permission);
+      
+      toast.dismiss();
+      
+      if (permission === 'granted') {
+        toast.success('✅ Notifications enabled! Subscribing...');
+        
+        // Subscribe to push
+        try {
+          const subscription = await notificationService.subscribeToPush();
+          if (subscription) {
+            toast.success('✅ Successfully subscribed to push notifications!');
+            console.log('Subscription:', subscription);
+          }
+        } catch (subError) {
+          console.error('Subscription error:', subError);
+          toast.error('Failed to subscribe: ' + subError.message);
+        }
+      } else if (permission === 'denied') {
+        toast.error('❌ Notifications blocked. Please enable from browser settings.');
+      } else {
+        toast.warning('Permission not granted. You can try again.');
+      }
+    } catch (error) {
+      console.error('Permission error:', error);
+      toast.dismiss();
+      toast.error('Error: ' + error.message);
+    }
+  }}
+>
+  🔔 Enable Notifications
+</Button> */}
 
       {/* Chat Widget */}
       <ChatWidget 
