@@ -15,12 +15,12 @@ const Card = ({
   const Component = isInteractive ? motion.div : 'div';
   const motionProps = isInteractive ? { whileHover: cardHover } : {};
 
-  const style = accentColor ? { borderTop: `4px solid ${accentColor}` } : {};
+  const style = accentColor ? { borderTop: `3px solid ${accentColor}` } : {};
 
   return (
     <Component
       style={style}
-      className={`rounded-lg border border-border-default bg-surface-card p-5 ${glow ? 'shadow-[0_0_20px_rgba(16,185,129,0.08)]' : ''} ${isInteractive ? 'cursor-pointer transition-colors hover:bg-surface-card-hover' : ''} ${className}`}
+      className={`rounded-2xl border border-border-default bg-surface-card p-4 shadow-[0_8px_20px_rgba(15,23,42,0.06)] sm:p-5 ${glow ? 'shadow-[0_12px_30px_rgba(34,197,94,0.08)]' : ''} ${isInteractive ? 'cursor-pointer transition-colors hover:border-brand/20 hover:bg-surface-card-hover' : ''} ${className}`}
       onClick={onClick}
       {...motionProps}
       {...props}
