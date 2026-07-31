@@ -1,7 +1,6 @@
 // controllers/food.controller.js
 import fs from 'fs';
-import { pythonFoodService } from '../services/pythonFoodService.js';
-import { analyseFoodImage as localAnalyseFood } from '../services/ai.service.js';
+import { analyseFoodImage, analyseFoodImageStream } from '../services/ai.service.js';
 
 export const analyseFood = async (req, res) => {
     try {
@@ -15,28 +14,14 @@ export const analyseFood = async (req, res) => {
         const imagePath = req.file.path;
         console.log(`📸 Analyzing food image: ${imagePath}`);
 
-        // ✅ Try Python service first
-        const result = await pythonFoodService.analyzeFoodWithFallback(imagePath);
-        
-        // If Python service succeeded
+        // ✅ Native Gemini Vision food analysis (no Python proxy)
+        const result = await analyseFoodImage(imagePath);
+
         if (result && result.success) {
             return res.status(200).json({
                 success: true,
                 data: result.data,
-                source: result.source || 'python_service',
-                attempt: result.attempt || 1
-            });
-        }
-
-        // ✅ Fallback to local Gemini analysis
-        console.log('⚠️ Python service failed, using local fallback...');
-        const localResult = await localAnalyseFood(imagePath);
-        
-        if (localResult && localResult.success) {
-            return res.status(200).json({
-                success: true,
-                data: localResult.data,
-                source: 'local_fallback'
+                source: 'gemini_native'
             });
         }
 
@@ -80,10 +65,10 @@ export const analyseFoodStream = async (req, res) => {
         res.setHeader('X-Accel-Buffering', 'no');
 
         // Send initial status
-        res.write(`event: status\ndata: ${JSON.stringify({ message: '🔍 Starting food analysis...' })}\n\n`);
+        res.write(`event: status\ndata: ${JSON.stringify({ message: '🔍 Starting food analysis with Gemini Vision...' })}\n\n`);
 
-        // Use Python service for streaming
-        await pythonFoodService.analyzeFoodStream(imagePath, res);
+        // ✅ Native Gemini Vision streaming (no Python proxy)
+        await analyseFoodImageStream(imagePath, res);
 
     } catch (error) {
         console.error('❌ Stream analysis error:', error);
@@ -106,17 +91,11 @@ export const analyseFoodStream = async (req, res) => {
 };
 
 export const analyseFoodHealth = async (req, res) => {
-    try {
-        const isHealthy = await pythonFoodService.healthCheck();
-        return res.status(200).json({
-            success: true,
-            python_service: isHealthy ? 'healthy' : 'unavailable',
-            status: 'ok'
-        });
-    } catch (error) {
-        return res.status(500).json({
-            success: false,
-            message: error.message
-        });
-    }
+    return res.status(200).json({
+        success: true,
+        gemini_service: process.env.GEMINI_API_KEY ? 'configured' : 'key missing',
+        openai_service: process.env.OPENAI_API_KEY ? 'configured' : 'key missing',
+        status: 'ok',
+        note: 'Services run natively in Node.js (no Python proxy)'
+    });
 };
