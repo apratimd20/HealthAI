@@ -9,30 +9,21 @@ import fs from 'fs';
 // ============================================================
 export const createPost = async (req, res) => {
   try {
-    const { caption, foodName, nutrition, isPublic } = req.body;
-    
-    if (!req.file) {
-      return res.status(400).json({
-        success: false,
-        message: 'Image is required',
-      });
-    }
+    const { content, caption, foodName, nutrition, isPublic } = req.body;
 
-    if (!foodName) {
-      return res.status(400).json({
-        success: false,
-        message: 'Food name is required',
-      });
-    }
+    let imageUrl = null;
 
-    // Upload image to Cloudinary (or local storage)
-    const result = await cloudinary.uploader.upload(req.file.path, {
-      folder: 'community-posts',
-      transformation: [
-        { width: 800, height: 800, crop: 'limit' },
-        { quality: 'auto' },
-      ],
-    });
+    // Upload image to Cloudinary if provided
+    if (req.file) {
+      const result = await cloudinary.uploader.upload(req.file.path, {
+        folder: 'community-posts',
+        transformation: [
+          { width: 800, height: 800, crop: 'limit' },
+          { quality: 'auto' },
+        ],
+      });
+      imageUrl = result.secure_url;
+    }
 
     // Parse nutrition if provided
     let nutritionData = null;
@@ -49,9 +40,10 @@ export const createPost = async (req, res) => {
     // Create post
     const post = await Post.create({
       user: req.user._id,
-      image: result.secure_url,
+      image: imageUrl,
+      content: content || '',
       caption: caption || '',
-      foodName,
+      foodName: foodName || '',
       nutrition: nutritionData,
       isPublic: isPublic !== false,
     });

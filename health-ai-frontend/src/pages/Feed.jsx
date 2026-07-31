@@ -12,7 +12,7 @@ import Card from '../components/ui/Card';
 import {
   IoTrendingUp,
   IoRefreshOutline,
-  IoRestaurantOutline,
+  IoFitnessOutline,
 } from 'react-icons/io5';
 
 export default function Feed() {
@@ -65,10 +65,10 @@ export default function Feed() {
         <div className="flex items-center justify-between mb-6">
           <div>
             <h1 className="text-2xl font-bold text-fg">
-              🍽️ Food Community
+              Health Community
             </h1>
             <p className="text-sm text-fg-muted">
-              Share what you're eating and get inspired
+              Share workouts, meals, progress, and health tips
             </p>
           </div>
           <div className="flex gap-2">
@@ -114,16 +114,18 @@ export default function Feed() {
                       className="flex items-center gap-3 p-2 rounded-lg hover:bg-surface-muted transition-colors cursor-pointer"
                       onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
                     >
-                      <div className="h-12 w-12 rounded-lg bg-surface-muted shrink-0 overflow-hidden">
-                        <img
-                          src={post.image}
-                          alt={post.foodName}
-                          className="h-full w-full object-cover"
-                        />
-                      </div>
+                      {post.image ? (
+                        <div className="h-12 w-12 rounded-lg bg-surface-muted shrink-0 overflow-hidden">
+                          <img src={post.image} alt="" className="h-full w-full object-cover" />
+                        </div>
+                      ) : (
+                        <div className="h-12 w-12 rounded-lg bg-brand/10 shrink-0 flex items-center justify-center text-brand">
+                          <IoFitnessOutline size={20} />
+                        </div>
+                      )}
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium text-fg truncate">
-                          {post.foodName}
+                          {post.foodName || post.content?.slice(0, 50) || 'Health post'}
                         </p>
                         <p className="text-xs text-fg-muted truncate">
                           {post.user?.name} • ❤️ {post.likes?.length || 0}
@@ -144,10 +146,10 @@ export default function Feed() {
         <div className="space-y-4">
           {posts.length === 0 ? (
             <Card className="p-12 text-center">
-              <IoRestaurantOutline size={48} className="mx-auto text-fg-subtle/40" />
+              <IoFitnessOutline size={48} className="mx-auto text-fg-subtle/40" />
               <h3 className="mt-4 text-lg font-semibold text-fg">No posts yet</h3>
               <p className="text-sm text-fg-muted">
-                Be the first to share what you're eating today!
+                Be the first to share your health journey!
               </p>
             </Card>
           ) : (
