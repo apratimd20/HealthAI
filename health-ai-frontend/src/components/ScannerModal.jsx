@@ -294,7 +294,7 @@ export default function ScannerModal({ isOpen, onClose, onScanComplete }) {
           Change Image
         </Button>
         <Button onClick={handleAnalyze} loading={isLoading} className="flex-1" disabled={isLoading}>
-          {isLoading ? 'Analyzing...' : <><IoScanOutline size={18} /> Analyze Food</>}
+          {isLoading ? 'Analyzing...' : <div className='flex gap-2' > <IoScanOutline size={18} /> Analyze Food</div>}
         </Button>
       </div>
 

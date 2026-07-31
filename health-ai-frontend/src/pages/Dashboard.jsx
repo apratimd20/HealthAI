@@ -484,7 +484,7 @@ export default function Dashboard() {
                   Take a photo of your meal and get AI-powered nutrition analysis.
                 </p>
                 <Button className="flex gap-2" size="sm">
-                  <IoCameraOutline size={14} />
+                  {/* <IoCameraOutline size={14} /> */}
                   Scan Now
                 </Button>
               </Card>
