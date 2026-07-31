@@ -7,6 +7,7 @@ import { GoalRouter } from './routes/goal.route.js'
 import chatRouter from './routes/chat.route.js'
 import postRouter from './routes/post.route.js'
 import { NotificationRouter } from './routes/notification.routes.js'
+import adminRouter from './routes/admin.route.js'
 
 const app = express()
 
@@ -55,6 +56,7 @@ app.get('/',(req,res)=>{
 
 app.use('/api/food',foodRouter)
 app.use('/api/user',UserRouter)
+app.use('/api/admin', adminRouter)
 app.use('/api/health',GoalRouter)
 app.use('/api/chat', chatRouter);
 app.use('/api/posts', postRouter);
