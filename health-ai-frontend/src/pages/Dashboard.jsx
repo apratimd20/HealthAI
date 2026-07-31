@@ -137,7 +137,7 @@ export default function Dashboard() {
       id: 'food-scan',
       title: 'Food Image Analysis',
       description: 'Upload a meal photo for AI macro estimates. Analyze now!',
-      icon: <IoCameraOutline size={28} className="text-calories" />,
+      icon: <IoCameraOutline size={28} className="text-brand" />,
       action: () => setIsScannerOpen(true), // ✅ Enable scanner
       disabled: false, // ✅ Now enabled
     },
@@ -405,6 +405,14 @@ export default function Dashboard() {
               >
                 Ask AI
               </Button>
+              <Button 
+                size="sm" 
+                variant="outline"
+                onClick={() => setCancelModalOpen(true)}
+                className="border-danger/40 text-danger hover:border-danger hover:bg-danger/10 hover:text-danger"
+              >
+                Delete Goal
+              </Button>
             </div>
           </motion.div>
 
@@ -462,18 +470,20 @@ export default function Dashboard() {
             <div className="space-y-6">
               <GoalSummary goalData={goal} onUpdateGoal={() => setGoalModalOpen(true)} />
 
-              {/* ✅ Food Scanner Card - Now Active */}
+              {/* ✅ Food Scanner Card */}
               <Card 
-                className="flex flex-col items-start gap-3 cursor-pointer hover:border-brand/30 transition-colors" 
+                className="group flex flex-col items-start gap-3 cursor-pointer transition-all hover:border-brand/40 hover:shadow-[0_0_20px_rgba(16,185,129,0.08)]" 
                 glow
                 onClick={() => setIsScannerOpen(true)}
               >
-                <IoCameraOutline size={32} className="text-calories" />
-                <h3 className="text-lg font-bold">Food Scanner</h3>
+                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-brand/15 text-brand transition-all group-hover:bg-brand/20 group-hover:scale-105">
+                  <IoCameraOutline size={24} />
+                </div>
+                <h3 className="text-lg font-bold text-fg">Food Scanner</h3>
                 <p className="text-sm leading-relaxed text-fg-muted">
                   Take a photo of your meal and get AI-powered nutrition analysis.
                 </p>
-                <Button size="sm" onClick={() => setIsScannerOpen(true)}>
+                <Button className="flex gap-2" size="sm">
                   <IoCameraOutline size={14} />
                   Scan Now
                 </Button>
@@ -506,13 +516,6 @@ export default function Dashboard() {
                 </Button>
               </Card>
 
-              <Button 
-                variant="outline" 
-                className="w-full border-danger text-danger hover:border-danger hover:text-danger" 
-                onClick={() => setCancelModalOpen(true)}
-              >
-                Deactivate current goal
-              </Button>
             </div>
           </motion.div>
         </motion.div>

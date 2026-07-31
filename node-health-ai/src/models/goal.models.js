@@ -165,6 +165,16 @@ const goalSchema = new mongoose.Schema(
       default: null,
     },
 
+    lastNotificationAt: {
+      type: Date,
+      default: null,
+    },
+
+    lastNotificationCategory: {
+      type: String,
+      default: null,
+    },
+
   },
   {
     timestamps: true,
