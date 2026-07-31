@@ -75,7 +75,7 @@ export const generateDailyPlan = async (goalData) => {
             tdee: Math.round(tdee),
             calories: Math.round(calories),
             water: calculateWaterIntake(goalData.weight),
-            sleep: getSleepRecommendation(goalData.sleepHours || 8),
+            sleep: getSleepRecommendation(goalData.sleepHours || 8, goalData.sleepTime || null),
             macros: macros,
             meals: meals,
             workout: workout,

@@ -450,7 +450,7 @@ export default function Dashboard() {
             <MetricCard
               title="Sleep Target"
               value={plan.sleep?.duration || '8 Hours'}
-              subtitle={`Bedtime: ${plan.sleep?.bedtime || '10:30 PM'}`}
+              subtitle={`Bedtime: ${plan.sleep?.bedtime || 'Not set'}`}
               icon={<IoBedOutline />}
               accentColor="#A29BFE"
               bgColor="bg-purple-500/10"
@@ -484,7 +484,7 @@ export default function Dashboard() {
                   Take a photo of your meal and get AI-powered nutrition analysis.
                 </p>
                 <Button className="flex gap-2" size="sm">
-                  <IoCameraOutline size={14} />
+                  {/* <IoCameraOutline size={14} /> */}
                   Scan Now
                 </Button>
               </Card>

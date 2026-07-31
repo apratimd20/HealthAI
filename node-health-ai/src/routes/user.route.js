@@ -7,4 +7,3 @@ export const UserRouter = express.Router()
 UserRouter.post('/register',registerUser)
 UserRouter.post('/login',loginUser)
 UserRouter.get('/profile',authUser,userProfile)
-
