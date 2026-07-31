@@ -24,6 +24,7 @@ export default function Register() {
   } = useForm();
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
 
@@ -112,17 +113,27 @@ export default function Register() {
           </button>
         </div>
 
-        <Input
-          label="Confirm Password"
-          type="password"
-          placeholder="••••••••"
-          icon={<MdOutlineLock size={20} />}
-          error={errors.confirmPassword?.message}
-          {...register('confirmPassword', {
-            required: 'Confirm password is required',
-            validate: (value) => value === password || 'Passwords do not match',
-          })}
-        />
+        <div className="relative">
+          <Input
+            label="Confirm Password"
+            type={showConfirmPassword ? 'text' : 'password'}
+            placeholder="••••••••"
+            icon={<MdOutlineLock size={20} />}
+            error={errors.confirmPassword?.message}
+            {...register('confirmPassword', {
+              required: 'Confirm password is required',
+              validate: (value) => value === password || 'Passwords do not match',
+            })}
+          />
+          <button
+            type="button"
+            className="absolute right-3 top-[38px] text-fg-subtle hover:text-fg"
+            onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+            aria-label={showConfirmPassword ? 'Hide confirm password' : 'Show confirm password'}
+          >
+            {showConfirmPassword ? <MdOutlineVisibilityOff size={20} /> : <MdOutlineVisibility size={20} />}
+          </button>
+        </div>
 
         <Button type="submit" loading={loading} className="mt-2 w-full">
           Get Started
@@ -132,7 +143,7 @@ export default function Register() {
       <p className="mt-6 text-center text-sm text-fg-muted">
         Already have an account?{' '}
         <Link to="/login" className="font-semibold text-brand hover:text-brand-hover">
-          Sign In
+          Login
         </Link>
       </p>
     </AuthLayout>

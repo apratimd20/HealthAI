@@ -32,7 +32,8 @@ export default function Login() {
       if (response.success && response.token) {
         toast.success(response.message || 'Login successful!');
         await login(response.token);
-        navigate('/dashboard');
+        const userRole = response.user?.role;
+        navigate(userRole === 'admin' ? '/admin' : '/dashboard');
       } else {
         toast.error(response.message || 'Login failed');
       }

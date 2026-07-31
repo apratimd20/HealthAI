@@ -50,7 +50,7 @@ export const authUser = async (req, res, next) => {
             });
         }
 
-        console.log('👤 User authenticated:', user.email);
+        console.log('👤 User authenticated:', user.email, 'role:', user.role);
         
         // Attach user to request
         req.user = user;

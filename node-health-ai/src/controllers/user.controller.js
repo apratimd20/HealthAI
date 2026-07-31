@@ -3,8 +3,8 @@ import User from "../models/user.models.js"
 import jwt from 'jsonwebtoken'
 
 
-const generateToken = (id) => {
-  return jwt.sign({ id }, process.env.JWT_SECRET, {
+const generateToken = (user) => {
+  return jwt.sign({ id: user._id, role: user.role || 'user' }, process.env.JWT_SECRET, {
     expiresIn: "2d",
   });
 };
@@ -93,13 +93,19 @@ export const loginUser = async (req, res) => {
             })
 
         }
-       const token = generateToken(isExist._id);
+       const token = generateToken(isExist);
 
         return res.status(200).json(
             {
              success:true,
              token,
-             message:"User Login Success"
+             message:"User Login Success",
+             user: {
+                id: isExist._id,
+                name: isExist.name,
+                email: isExist.email,
+                role: isExist.role,
+             }
             }
         )
 
@@ -128,6 +134,7 @@ export const userProfile = async (req, res) => {
                 id: req.user._id,
                 name: req.user.name,
                 email: req.user.email,
+                role: req.user.role || 'user',
             },
         });
     } catch (error) {
