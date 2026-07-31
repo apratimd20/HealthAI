@@ -177,13 +177,24 @@ export const sendTimedNotifications = async (req, res) => {
       });
       
       if (!goal) continue;
+
+      // Skip if already notified within the last 2 hours for the same window
+      if (goal.lastNotificationAt) {
+        const hoursSinceLastNotif = (Date.now() - new Date(goal.lastNotificationAt).getTime()) / (1000 * 60 * 60);
+        if (hoursSinceLastNotif < 2) continue;
+      }
       
       const notifications = await getTimeBasedNotifications(goal, currentHour);
       
       if (notifications.length > 0) {
         const topNotification = notifications[0];
+
+        // Skip if same category was sent within the last 4 hours
+        if (goal.lastNotificationCategory === topNotification.category && goal.lastNotificationAt) {
+          const hoursSinceSameCategory = (Date.now() - new Date(goal.lastNotificationAt).getTime()) / (1000 * 60 * 60);
+          if (hoursSinceSameCategory < 4) continue;
+        }
         
-        // Get appropriate title with emoji
         const title = getNotificationTitle(topNotification.category);
         const body = topNotification.text;
         const type = topNotification.type || 'default';
@@ -199,6 +210,13 @@ export const sendTimedNotifications = async (req, res) => {
             url: '/dashboard'
           }
         );
+
+        // Update last notification tracking
+        await Goal.findByIdAndUpdate(goal._id, {
+          lastNotificationAt: new Date(),
+          lastNotificationCategory: topNotification.category,
+        });
+
         sentCount++;
       }
     }

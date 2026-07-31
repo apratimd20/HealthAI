@@ -1,18 +1,15 @@
-// routes/ProtectedRoute.jsx
 import React from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import Loader from '../components/ui/Loader';
 
 export const ProtectedRoute = ({ children }) => {
   const { isAuthenticated, loading } = useAuth();
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-brand border-t-transparent mx-auto"></div>
-          <p className="mt-2 text-sm text-fg-muted">Loading...</p>
-        </div>
+      <div className="min-h-screen flex items-center justify-center bg-zinc-950">
+        <Loader text="Loading..." />
       </div>
     );
   }
@@ -21,7 +18,6 @@ export const ProtectedRoute = ({ children }) => {
     return <Navigate to="/login" replace />;
   }
 
-  // ✅ Just render children, don't redirect
   return children;
 };
 
@@ -30,11 +26,8 @@ export const PublicRoute = ({ children }) => {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-brand border-t-transparent mx-auto"></div>
-          <p className="mt-2 text-sm text-fg-muted">Loading...</p>
-        </div>
+      <div className="min-h-screen flex items-center justify-center bg-zinc-950">
+        <Loader text="Loading..." />
       </div>
     );
   }
