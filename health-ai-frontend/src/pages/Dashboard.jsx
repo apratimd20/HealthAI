@@ -450,7 +450,7 @@ export default function Dashboard() {
             <MetricCard
               title="Sleep Target"
               value={plan.sleep?.duration || '8 Hours'}
-              subtitle={`Bedtime: ${plan.sleep?.bedtime || '10:30 PM'}`}
+              subtitle={`Bedtime: ${plan.sleep?.bedtime || 'Not set'}`}
               icon={<IoBedOutline />}
               accentColor="#A29BFE"
               bgColor="bg-purple-500/10"

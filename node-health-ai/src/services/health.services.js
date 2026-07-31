@@ -157,30 +157,73 @@ export const calculateWaterIntake = (weight) => {
 };
 
 // Get sleep recommendation
-export const getSleepRecommendation = (sleepHours) => {
-    const hours = sleepHours || 8;
+export const getSleepRecommendation = (sleepHours, sleepTime = null) => {
+    const hours = Number(sleepHours) || 8;
     const bedtime = new Date();
-    bedtime.setHours(22, 30, 0, 0); // Default 10:30 PM
-    
+    const parsedSleepTime = parseSleepTime(sleepTime);
+
+    if (parsedSleepTime) {
+        bedtime.setHours(parsedSleepTime.hours, parsedSleepTime.minutes, 0, 0);
+    } else {
+        bedtime.setHours(22, 30, 0, 0); // Default 10:30 PM
+    }
+
     const wakeTime = new Date(bedtime);
     wakeTime.setHours(wakeTime.getHours() + hours);
-    
+
     return {
         duration: `${hours} hours`,
-        bedtime: bedtime.toLocaleTimeString('en-US', { 
-            hour: '2-digit', 
-            minute: '2-digit' 
+        bedtime: bedtime.toLocaleTimeString('en-US', {
+            hour: 'numeric',
+            minute: '2-digit'
         }),
-        wakeTime: wakeTime.toLocaleTimeString('en-US', { 
-            hour: '2-digit', 
-            minute: '2-digit' 
+        wakeTime: wakeTime.toLocaleTimeString('en-US', {
+            hour: 'numeric',
+            minute: '2-digit'
         }),
-        recommendation: hours >= 7 && hours <= 9 ? 
+        recommendation: hours >= 7 && hours <= 9 ?
             'Optimal sleep duration for adults' :
             hours < 7 ? 'Consider increasing sleep for better recovery' :
             'Good sleep duration'
     };
 };
+
+function parseSleepTime(value) {
+    if (!value || typeof value !== 'string') return null;
+
+    const trimmed = value.trim();
+    if (!trimmed) return null;
+
+    const timeMatch = trimmed.match(/^([0-9]{1,2}):([0-9]{2})(?:\s*(AM|PM))?$/i);
+    if (timeMatch) {
+        let hours = Number(timeMatch[1]);
+        const minutes = Number(timeMatch[2]);
+        const period = (timeMatch[3] || '').toUpperCase();
+
+        if (period === 'PM' && hours < 12) hours += 12;
+        if (period === 'AM' && hours === 12) hours = 0;
+
+        if (hours >= 0 && hours <= 23 && minutes >= 0 && minutes <= 59) {
+            return { hours, minutes };
+        }
+    }
+
+    const amPmMatch = trimmed.match(/^([0-9]{1,2}):([0-9]{2})\s*([AP]M)$/i);
+    if (amPmMatch) {
+        let hours = Number(amPmMatch[1]);
+        const minutes = Number(amPmMatch[2]);
+        const period = amPmMatch[3].toUpperCase();
+
+        if (period === 'PM' && hours < 12) hours += 12;
+        if (period === 'AM' && hours === 12) hours = 0;
+
+        if (hours >= 0 && hours <= 23 && minutes >= 0 && minutes <= 59) {
+            return { hours, minutes };
+        }
+    }
+
+    return null;
+}
 
 // Calculate macros
 export const calculateMacros = (calories, goal) => {

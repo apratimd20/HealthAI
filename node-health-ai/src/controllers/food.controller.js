@@ -21,7 +21,7 @@ export const analyseFood = async (req, res) => {
             return res.status(200).json({
                 success: true,
                 data: result.data,
-                source: 'gemini_native'
+                source: result.source || 'groq_native'
             });
         }
 
@@ -65,9 +65,9 @@ export const analyseFoodStream = async (req, res) => {
         res.setHeader('X-Accel-Buffering', 'no');
 
         // Send initial status
-        res.write(`event: status\ndata: ${JSON.stringify({ message: '🔍 Starting food analysis with Gemini Vision...' })}\n\n`);
+        res.write(`event: status\ndata: ${JSON.stringify({ message: '🔍 Starting food analysis with vision AI...' })}\n\n`);
 
-        // ✅ Native Gemini Vision streaming (no Python proxy)
+        // ✅ Native food image scanning using Groq/Gemini pipeline
         await analyseFoodImageStream(imagePath, res);
 
     } catch (error) {
@@ -93,9 +93,10 @@ export const analyseFoodStream = async (req, res) => {
 export const analyseFoodHealth = async (req, res) => {
     return res.status(200).json({
         success: true,
+        groq_service: process.env.GROQ_API_KEY ? 'configured' : 'key missing',
         gemini_service: process.env.GEMINI_API_KEY ? 'configured' : 'key missing',
         openai_service: process.env.OPENAI_API_KEY ? 'configured' : 'key missing',
         status: 'ok',
-        note: 'Services run natively in Node.js (no Python proxy)'
+        note: 'Food scanning uses Groq first, then Gemini/OpenAI as fallbacks.'
     });
 };
