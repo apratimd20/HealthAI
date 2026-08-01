@@ -21,7 +21,7 @@ export default defineConfig({
         cleanupOutdatedCaches: true,
         sourcemap: false,
         globPatterns: ['**/*.{js,css,html,svg,png,jpg,jpeg,webp,avif,json}'],
-        navigateFallback: '/offline.html',
+        navigateFallback: '/index.html',
         navigateFallbackDenylist: [/^\/_/, /\/api\//],
         runtimeCaching: [
           {
