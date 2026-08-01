@@ -10,6 +10,7 @@ export const AuthProvider = ({ children }) => {
     const [token, setToken] = useState(localStorage.getItem('token'));
     const [hasActiveGoal, setHasActiveGoal] = useState(null);
     const [loading, setLoading] = useState(true);
+    const [isAdmin, setIsAdmin] = useState(false);
     
     // ✅ Track if authentication is confirmed
     const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -19,7 +20,9 @@ export const AuthProvider = ({ children }) => {
         try {
             const response = await userService.getProfile();
             if (response.success) {
-                setUser(response.data);
+                const userData = response.data;
+                setUser(userData);
+                setIsAdmin(userData?.role === 'admin');
                 setIsAuthenticated(true); // ✅ Set authenticated
                 return true;
             }
@@ -30,6 +33,7 @@ export const AuthProvider = ({ children }) => {
                 localStorage.removeItem('token');
                 setToken(null);
                 setUser(null);
+                setIsAdmin(false);
                 setIsAuthenticated(false);
             }
             return false;
@@ -74,6 +78,7 @@ export const AuthProvider = ({ children }) => {
                     localStorage.removeItem('token');
                     setToken(null);
                     setUser(null);
+                    setIsAdmin(false);
                     setIsAuthenticated(false);
                     setHasActiveGoal(false);
                 }
@@ -110,6 +115,7 @@ export const AuthProvider = ({ children }) => {
         localStorage.removeItem('token');
         setToken(null);
         setUser(null);
+        setIsAdmin(false);
         setIsAuthenticated(false);
         setHasActiveGoal(false);
     }, []);
@@ -133,6 +139,7 @@ export const AuthProvider = ({ children }) => {
         token,
         isAuthenticated, 
         hasActiveGoal,
+        isAdmin,
         loading,
         login,
         logout,

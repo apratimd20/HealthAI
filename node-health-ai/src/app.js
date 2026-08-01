@@ -7,18 +7,23 @@ import { GoalRouter } from './routes/goal.route.js'
 import chatRouter from './routes/chat.route.js'
 import postRouter from './routes/post.route.js'
 import { NotificationRouter } from './routes/notification.routes.js'
+import adminRouter from './routes/admin.route.js'
 
 const app = express()
 
 // ✅ UPDATED CORS SETUP WITH LOCALHOST & VERCEL URLS
 const allowedOrigins = [
-    'http://localhost:3000',                 
-    'http://127.0.0.1:3000',                 
-    'http://localhost:5173',                 
-    'http://127.0.0.1:5173',                 
-    'http://localhost:5174',                 
-    'http://127.0.0.1:5174',                 
-    'https://health-ai-wine.vercel.app'      
+    'http://localhost:3000',
+    'http://127.0.0.1:3000',
+    'http://localhost:5173',
+    'http://127.0.0.1:5173',
+    'http://localhost:5174',
+    'http://127.0.0.1:5174',
+    'http://localhost:5175',
+    'http://127.0.0.1:5175',
+    'http://localhost:4173',
+    'http://127.0.0.1:4173',
+    'https://health-ai-wine.vercel.app'
 ];
 
 app.use(cors({
@@ -51,6 +56,7 @@ app.get('/',(req,res)=>{
 
 app.use('/api/food',foodRouter)
 app.use('/api/user',UserRouter)
+app.use('/api/admin', adminRouter)
 app.use('/api/health',GoalRouter)
 app.use('/api/chat', chatRouter);
 app.use('/api/posts', postRouter);

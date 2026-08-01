@@ -3,6 +3,7 @@
 
 import Goal from "./../models/goal.models.js";
 import { generateDailyPlan } from "../services/plan.service.js";
+import { getGoalSuggestions, generateAIPlan } from "../services/aiPlan.service.js";
 
 // Helper function for BMI category
 function getBMICategory(bmi) {
@@ -269,6 +270,34 @@ export const setGoal = async (req, res) => {
       message: error.message || "Failed to create goal",
     });
   }
+};
+
+export const getSuggestions = async (req, res) => {
+    try {
+        const { age, gender, height, weight } = req.body;
+        if (!age || !gender || !height || !weight) {
+            return res.status(400).json({ success: false, message: "age, gender, height, weight are required" });
+        }
+        const suggestions = await getGoalSuggestions(age, gender, height, weight);
+        return res.status(200).json({ success: true, data: suggestions });
+    } catch (error) {
+        return res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+export const getAIPlan = async (req, res) => {
+    try {
+        const goal = await Goal.findOne({ user: req.user._id, status: "active" });
+        if (!goal) return res.status(404).json({ success: false, message: "No active goal" });
+
+        const aiPlan = await generateAIPlan(goal);
+        if (!aiPlan) return res.status(503).json({ success: false, message: "AI plan unavailable, using standard plan" });
+
+        const plan = await generateDailyPlan(goal);
+        return res.status(200).json({ success: true, data: { ...plan, aiPlan } });
+    } catch (error) {
+        return res.status(500).json({ success: false, message: error.message });
+    }
 };
 
 export const getActiveGoal = async (req, res) => {

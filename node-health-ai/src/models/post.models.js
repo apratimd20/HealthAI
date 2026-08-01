@@ -1,4 +1,3 @@
-
 import mongoose from 'mongoose';
 
 const postSchema = new mongoose.Schema(
@@ -12,13 +11,16 @@ const postSchema = new mongoose.Schema(
       type: String,
       required: false,
     },
+    content: {
+      type: String,
+      maxlength: 2000,
+    },
     caption: {
       type: String,
       maxlength: 500,
     },
     foodName: {
       type: String,
-      required: true,
     },
     nutrition: {
       calories: Number,

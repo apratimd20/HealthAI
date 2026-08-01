@@ -3,8 +3,8 @@ import User from "../models/user.models.js"
 import jwt from 'jsonwebtoken'
 
 
-const generateToken = (id) => {
-  return jwt.sign({ id }, process.env.JWT_SECRET, {
+const generateToken = (user) => {
+  return jwt.sign({ id: user._id, role: user.role || 'user' }, process.env.JWT_SECRET, {
     expiresIn: "2d",
   });
 };
@@ -29,16 +29,22 @@ export const registerUser = async (req, res) => {
                 message: "user already exist "
             })
         }
+
         const user = await User.create({
-            name, email, password
+            name,
+            email, password
         })
+
+
+
+        const token = generateToken(user._id);
+
+
+
         return res.status(201).json({
             success: true,
-            message: "user register successfully",
-            data: {
-                id: user.id,
-                name: user.name
-            }
+            message: "User Created Successfully",
+            token
         })
 
 
@@ -47,44 +53,59 @@ export const registerUser = async (req, res) => {
             success: false,
             message: error.message
         })
-    }
 
+    }
 }
 
+
 export const loginUser = async (req, res) => {
-        console.log(req.body)
     try {
-        const { email, password } = req.body
+        const {
+            email, password
+        } = req.body
+
 
         if (!email || !password) {
             return res.status(400).json({
                 success: false,
-                message: "All fileds are required "
+                message: "All fields are require"
             })
         }
 
         const isExist = await User.findOne({ email })
+
         if (!isExist) {
-            return res.status(404).json({
-                success: false,
-                message: "User not found",
-            });
+            return res.status(404).json(
+                {
+                    success: false,
+                    message: "User not exist"
+                }
+            )
         }
 
+
         const isMatch = await isExist.comparePassword(password);
+
         if (!isMatch) {
             return res.status(401).json({
                 success: false,
-                message: "Invalid credentials",
-            });
+                message: "Invalid Credentials"
+            })
+
         }
-       const token = generateToken(isExist._id);
+       const token = generateToken(isExist);
 
         return res.status(200).json(
             {
              success:true,
              token,
-             message:"User Login Success"
+             message:"User Login Success",
+             user: {
+                id: isExist._id,
+                name: isExist.name,
+                email: isExist.email,
+                role: isExist.role,
+             }
             }
         )
 
@@ -113,6 +134,7 @@ export const userProfile = async (req, res) => {
                 id: req.user._id,
                 name: req.user.name,
                 email: req.user.email,
+                role: req.user.role || 'user',
             },
         });
     } catch (error) {

@@ -2,15 +2,10 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  IoChatbubbleEllipsesOutline,
   IoSendOutline,
   IoCloseOutline,
   IoFitnessOutline,
   IoSparklesOutline,
-  IoInformationCircleOutline,
-  IoAlertCircleOutline,
-  IoCloudOfflineOutline,
-  IoCheckmarkCircleOutline,
 } from 'react-icons/io5';
 import toast from 'react-hot-toast';
 import { chatService } from '../services/chatServices'; 
@@ -27,7 +22,6 @@ export default function ChatWidget({ isOpen, onClose, userGoal }) {
   const [statusMessage, setStatusMessage] = useState('');
   const [isStreaming, setIsStreaming] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
-  const [typingTimeout, setTypingTimeout] = useState(null);
   const [hasInitialSuggestions, setHasInitialSuggestions] = useState(false);
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
@@ -75,43 +69,6 @@ export default function ChatWidget({ isOpen, onClose, userGoal }) {
     scrollToBottom();
   }, [messages, scrollToBottom]);
 
-  // Simulate typing effect
-  const simulateTyping = useCallback((text, onComplete) => {
-    setIsTyping(true);
-    let index = 0;
-    const speed = 15;
-    
-    if (typingTimeout) {
-      clearTimeout(typingTimeout);
-      setTypingTimeout(null);
-    }
-
-    const typeNext = () => {
-      if (index < text.length) {
-        setMessages(prev => {
-          const lastIndex = prev.length - 1;
-          if (lastIndex >= 0 && prev[lastIndex].role === 'assistant') {
-            const updated = [...prev];
-            updated[lastIndex] = {
-              ...updated[lastIndex],
-              content: text.substring(0, index + 1),
-            };
-            return updated;
-          }
-          return prev;
-        });
-        index++;
-        const timeout = setTimeout(typeNext, speed);
-        setTypingTimeout(timeout);
-      } else {
-        setIsTyping(false);
-        if (onComplete) onComplete();
-      }
-    };
-
-    typeNext();
-  }, [typingTimeout]);
-
   // ✅ Send message function (used for both input and suggestions)
   const sendMessage = async (messageText) => {
     if (!messageText.trim() || loading || isStreaming) return;
@@ -129,31 +86,21 @@ export default function ChatWidget({ isOpen, onClose, userGoal }) {
     setIsStreaming(true);
     setStatusMessage('');
 
-    if (typingTimeout) {
-      clearTimeout(typingTimeout);
-      setTypingTimeout(null);
-    }
+    // Build conversation history from previous messages
+    const history = messages
+      .filter(m => m.role !== 'system')
+      .slice(-10)
+      .map(m => ({ role: m.role, content: m.content }));
 
     try {
       let assistantMessageId = null;
 
       await chatService.sendMessageStream(
         messageText.trim(),
+        history,
         (statusData) => {
           const msg = statusData.message || statusData;
           setStatusMessage(msg);
-          
-          if (typeof msg === 'string' && msg.includes('offline')) {
-            toast.custom((t) => (
-              <div className={`${t.visible ? 'animate-enter' : 'animate-leave'} flex items-center gap-3 rounded-lg bg-amber-500/10 border border-amber-500/20 px-4 py-3 shadow-lg backdrop-blur-sm`}>
-                <IoCloudOfflineOutline className="text-amber-400" size={20} />
-                <div>
-                  <p className="text-sm font-medium text-amber-400">Offline Mode Active</p>
-                  <p className="text-xs text-fg-muted">Using pre-loaded health responses</p>
-                </div>
-              </div>
-            ), { duration: 3000 });
-          }
         },
         (chunkData) => {
           const chunk = chunkData.chunk || chunkData;
@@ -162,7 +109,7 @@ export default function ChatWidget({ isOpen, onClose, userGoal }) {
             const newMessage = {
               id: Date.now(),
               role: 'assistant',
-              content: '',
+              content: chunk || '',
               complete: false,
               timestamp: new Date().toISOString(),
               source: chunkData.source || 'openai',
@@ -170,10 +117,7 @@ export default function ChatWidget({ isOpen, onClose, userGoal }) {
             };
             setMessages(prev => [...prev, newMessage]);
             assistantMessageId = newMessage.id;
-            
-            if (chunk && typeof chunk === 'string') {
-              simulateTyping(chunk, () => {});
-            }
+            setIsTyping(true);
           } else {
             setMessages(prev => {
               const lastIndex = prev.length - 1;
@@ -195,11 +139,6 @@ export default function ChatWidget({ isOpen, onClose, userGoal }) {
           const responseSource = completeData.source || 'openai';
           const responseNote = completeData.note || '';
           
-          if (typingTimeout) {
-            clearTimeout(typingTimeout);
-            setTypingTimeout(null);
-          }
-          
           setIsTyping(false);
 
           setMessages(prev => {
@@ -218,10 +157,6 @@ export default function ChatWidget({ isOpen, onClose, userGoal }) {
             return prev;
           });
 
-          if (responseSource === 'fallback') {
-            toast.success('💡 Response from offline health assistant');
-          }
-
           setIsStreaming(false);
           setLoading(false);
           setStatusMessage('');
@@ -229,10 +164,6 @@ export default function ChatWidget({ isOpen, onClose, userGoal }) {
         (errorData) => {
           const errorMsg = errorData.message || errorData || 'Something went wrong';
           
-          if (typingTimeout) {
-            clearTimeout(typingTimeout);
-            setTypingTimeout(null);
-          }
           setIsTyping(false);
 
           setMessages(prev => [...prev, {
@@ -253,10 +184,6 @@ export default function ChatWidget({ isOpen, onClose, userGoal }) {
     } catch (error) {
       console.error('Chat error:', error);
       
-      if (typingTimeout) {
-        clearTimeout(typingTimeout);
-        setTypingTimeout(null);
-      }
       setIsTyping(false);
 
       setMessages(prev => [...prev, {
@@ -295,7 +222,6 @@ export default function ChatWidget({ isOpen, onClose, userGoal }) {
   const renderMessage = (msg) => {
     const isUser = msg.role === 'user';
     const isError = msg.isError;
-    const isFallback = msg.source === 'fallback';
     const isComplete = msg.complete !== false;
 
     return (
@@ -315,25 +241,14 @@ export default function ChatWidget({ isOpen, onClose, userGoal }) {
               : 'bg-surface-muted text-fg'
           }`}
         >
-          {!isUser && !isError && isFallback && (
-            <div className="flex items-center gap-1 mb-1.5 text-xs text-amber-400">
-              <IoCloudOfflineOutline size={14} />
-              <span>Offline Mode</span>
-              <span className="text-fg-subtle ml-1">•</span>
-              <span className="text-fg-subtle">Pre-loaded responses</span>
-            </div>
-          )}
-
-          {!isUser && !isError && msg.note && (
-            <div className="flex items-center gap-1 mb-1.5 text-xs text-fg-subtle bg-white/5 rounded px-2 py-0.5">
-              <IoInformationCircleOutline size={14} />
-              <span>{msg.note}</span>
-            </div>
-          )}
-
           {isUser ? (
             <div className="whitespace-pre-wrap text-sm leading-relaxed">
               {msg.content}
+            </div>
+          ) : !isComplete ? (
+            <div className="whitespace-pre-wrap text-sm leading-relaxed">
+              {msg.content}
+              {isTyping && <span className="inline-block ml-0.5 animate-pulse">▌</span>}
             </div>
           ) : (
             <div className="prose prose-invert prose-sm max-w-none">
@@ -355,20 +270,6 @@ export default function ChatWidget({ isOpen, onClose, userGoal }) {
               >
                 {msg.content}
               </ReactMarkdown>
-              
-              {!isComplete && isTyping && (
-                <span className="inline-block ml-0.5">
-                  <span className="animate-pulse">▌</span>
-                </span>
-              )}
-            </div>
-          )}
-
-          {!isUser && !isComplete && !msg.content && isTyping && (
-            <div className="flex items-center gap-1 mt-1">
-              <span className="h-2 w-2 rounded-full bg-brand/60 animate-bounce" style={{ animationDelay: '0ms' }}></span>
-              <span className="h-2 w-2 rounded-full bg-brand/60 animate-bounce" style={{ animationDelay: '150ms' }}></span>
-              <span className="h-2 w-2 rounded-full bg-brand/60 animate-bounce" style={{ animationDelay: '300ms' }}></span>
             </div>
           )}
         </div>
@@ -414,19 +315,9 @@ export default function ChatWidget({ isOpen, onClose, userGoal }) {
 
               {/* Status Bar */}
               {statusMessage && (
-                <div className={`flex items-center gap-2 border-b border-white/10 px-4 py-2 ${
-                  statusMessage.includes('offline') ? 'bg-amber-500/5' : 'bg-brand/5'
-                }`}>
-                  {statusMessage.includes('offline') ? (
-                    <IoCloudOfflineOutline size={16} className="text-amber-400" />
-                  ) : (
-                    <div className="h-2 w-2 rounded-full bg-brand animate-pulse"></div>
-                  )}
-                  <span className={`text-xs ${
-                    statusMessage.includes('offline') ? 'text-amber-400' : 'text-fg-muted'
-                  }`}>
-                    {statusMessage}
-                  </span>
+                <div className="flex items-center gap-2 border-b border-white/10 px-4 py-2 bg-brand/5">
+                  <div className="h-2 w-2 rounded-full bg-brand animate-pulse"></div>
+                  <span className="text-xs text-fg-muted">{statusMessage}</span>
                 </div>
               )}
 

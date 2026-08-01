@@ -1,232 +1,236 @@
+// services/ai.service.js
+// Native Node.js AI services — Gemini Vision (primary) + OpenAI (fallback)
+// Replaces the Python FastAPI microservice
 
-import fs from "fs"
-import OpenAI from "openai";
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import fs from 'fs';
+import OpenAI from 'openai';
+import Groq from 'groq-sdk';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 
+const GEMINI_MODEL = 'gemini-2.0-flash';
 
-export const analyseFoodImageStream = async (imagePath, res) => {
+const parseFoodAnalysisJson = (text) => {
+    if (!text) return null;
+
+    const cleanedText = String(text)
+        .replace(/```json/gi, '')
+        .replace(/```/g, '')
+        .trim();
+
+    const jsonMatch = cleanedText.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) return null;
+
     try {
-
-        const openai = new OpenAI({
-            apiKey: process.env.OPENAI_API_KEY
-        });
-
-
-        // get the image to prepare 
-
-        const imageData = fs.readFileSync(imagePath);
-        const base64image = imageData.toString('base64');
-
-        // set sse header 
-
-        res.setHeader('Content-Type', 'text/event-stream');
-        res.setHeader('cache-control', 'no-cache');
-        res.setHeader('connection', 'keep-alive');
-
-        //initial status send krna h yha 
-
-        res.write(`event: status\ndata: ${JSON.stringify({ message: 'Analyse food with NutriAI...' })}\n\n`);
-
-        // here we write the prompt which send to the ai with the image 
-
-        const prompt = `Analyze this food image and return ONLY valid JSON (no other text):
-        {
-            "foodName": "name of the food",
-            "calories": 0,
-            "protein": 0,
-            "carbohydrates": 0,
-            "fat": 0,   
-            "healthyScore": 0,
-            "description": "In this anaylysis of the food as nutriton expert health related stuff"
-        }`;
-
-        // call openai with stream data 
-
-        const stream = await openai.chat.completions.create({
-            model: "gpt-4o-mini",
-            message: [
-                {
-                    role: "User",
-                    content: [
-                        {
-                            type: "text",
-                            text: prompt,
-                        },
-                        {
-                            type: "image_url",
-                            image_url: {
-                                url: `data:image/jpeg;base64,${base64image}`
-                            }
-                        }
-
-                    ]
-                }
-            ],
-            stream: true
-
-
-        });
-        // send the chunk 
-
-        let fullResponse = '';
-
-        for await (const chunk of stream) {
-            const content = chunk.choices[0]?.delta?.content || '';
-            if (content) {
-                fullResponse += content;
-                //here we send the chunk 
-                res.write(`event: chunk\ndata : ${JSON.stringify({ chunk: content })}\n\n`)
-            }
-        }
-
-        // send complete response
-        try {
-            const jsonMatch = fullResponse.match(/\{[\s\S]*\}/);
-            if (jsonMatch) {
-                const data = JSON.stringify(jsonMatch[0]);
-                res.write(`event: complete\ndata: ${JSON.stringify({ success: true, data })}\n\n`)
-            }
-        } catch (error) {
-            res.write(`event:error\ndata: ${JSON.stringify({ message: "Failed to parse the response" })}\n\n`)
-        }
-
-        res.write(`event: done\ndata: ${JSON.stringify({ message: 'Analysis complete' })}\n\n`)
-        res.end();
-
+        return JSON.parse(jsonMatch[0]);
     } catch (error) {
-        console.error('Error:', error);
-        res.write(`event: error\ndata: ${JSON.stringify({ message: error.message })}\n\n`);
-        res.end();
+        console.warn('⚠️ Failed to parse food analysis JSON:', error.message);
+        return null;
     }
-}
+};
 
+const runGroqVisionAnalysis = async (foodPrompt, base64image, mimeType) => {
+    if (!process.env.GROQ_API_KEY) return null;
 
-// openai 
+    const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+    const response = await groq.chat.completions.create({
+        model: 'llama-3.2-11b-vision-preview',
+        messages: [{
+            role: 'user',
+            content: [
+                { type: 'text', text: foodPrompt },
+                { type: 'image_url', image_url: { url: `data:${mimeType};base64,${base64image}` } }
+            ]
+        }],
+        max_tokens: 400,
+        temperature: 0.2,
+    });
 
-// export const analyseFoodImage = async (imagePath) => {
-//     try {
-//         const openai = new OpenAI({
-//             apiKey: process.env.OPENAI_API_KEY
-//         });
+    const text = response.choices?.[0]?.message?.content || '';
+    const data = parseFoodAnalysisJson(text);
+    if (!data) return null;
 
-//         // Read image
-//         const imageData = fs.readFileSync(imagePath);
-//         const base64image = imageData.toString('base64');
+    return { success: true, data, source: 'groq' };
+};
 
-//        const prompt = `Analyze this food image and return ONLY valid JSON (no other text):
-//         {
-//             "foodName": "name of the food",
-//             "calories": 0,
-//             "protein": 0,
-//             "carbohydrates": 0,
-//             "fat": 0,   
-//             "healthyScore": 0,
-//             "description": "In this anaylysis of the food as nutriton expert health related stuff"
-//         }`
-//         const response = await openai.chat.completions.create({
-//             model: "gpt-4o-mini",
-//             messages: [
-//                 {
-//                     role: "user",
-//                     content: [
-//                         {
-//                             type: "text",
-//                             text: prompt,
-//                         },
-//                         {
-//                             type: "image_url",
-//                             image_url: {
-//                                 url: `data:image/jpeg;base64,${base64image}`
-//                             }
-//                         }
-//                     ]
-//                 }
-//             ],
-//             stream: false, 
-//             max_tokens: 200 
-//         });
-
-//         // Get the response
-//         const fullResponse = response.choices[0].message.content;
-        
-//         // Extract JSON
-//         const jsonMatch = fullResponse.match(/\{[\s\S]*\}/);
-//         if (jsonMatch) {
-//             const data = JSON.parse(jsonMatch[0]);
-//             return {
-//                 success: true,
-//                 data: data
-//             };
-//         }
-
-//         return {
-//             success: false,
-//             message: "Could not parse response"
-//         };
-
-//     } catch (error) {
-//         console.error('Error:', error);
-//         return {
-//             success: false,
-//             message: error.message
-//         };
-//     }
-// };
-
-
-//gemini
-
-
-
+// ─────────────────────────────────────────────────────────────────────────────
+// GEMINI VISION — Food Image Analysis (non-streaming)
+// ─────────────────────────────────────────────────────────────────────────────
 export const analyseFoodImage = async (imagePath) => {
-    try {
-        const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    const FOOD_PROMPT = `Analyze this food image and return ONLY valid JSON with exactly this structure:
+{
+    "foodName": "name of the food dish",
+    "calories": 0,
+    "protein": 0,
+    "carbohydrates": 0,
+    "fat": 0,
+    "fiber": 0,
+    "sugar": 0,
+    "healthyScore": 0,
+    "description": "Brief nutritional description",
+    "portionSize": "Estimated portion size"
+}
+Only return the JSON object, no markdown, no other text.`;
 
-        const imageData = fs.readFileSync(imagePath);
-        const base64image = imageData.toString('base64');
+    const imageData = fs.readFileSync(imagePath);
+    const base64image = imageData.toString('base64');
+    const mimeType = imagePath.endsWith('.png') ? 'image/png'
+                   : imagePath.endsWith('.webp') ? 'image/webp' : 'image/jpeg';
 
-        const prompt = `Analyze this food image. Return ONLY JSON with these facts:
-        {
-            "foodName": "",
-            "calories": 0,
-            "protein": 0,
-            "carbohydrates": 0,
-            "fat": 0
-        }`;
+    // ✅ Use the existing Groq key for food image analysis first
+    if (process.env.GROQ_API_KEY) {
+        try {
+            const result = await runGroqVisionAnalysis(FOOD_PROMPT, base64image, mimeType);
+            if (result?.success) {
+                console.log(`✅ Groq food analysis: ${result.data.foodName}`);
+                return result;
+            }
+        } catch (groqErr) {
+            console.warn('⚠️ Groq food analysis failed, trying Gemini:', groqErr.message);
+        }
+    }
 
-        const result = await model.generateContent([
-            prompt,
-            {
-                inlineData: {
-                    mimeType: "image/jpeg",
-                    data: base64image
+    // ✅ Try Gemini Vision next
+    if (process.env.GEMINI_API_KEY) {
+        try {
+            const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+            const model = genAI.getGenerativeModel({ model: GEMINI_MODEL });
+
+            const maxRetries = 3;
+            for (let attempt = 0; attempt < maxRetries; attempt++) {
+                try {
+                    const result = await model.generateContent([
+                        FOOD_PROMPT,
+                        { inlineData: { mimeType, data: base64image } }
+                    ]);
+                    const text = result.response.text();
+                    const data = parseFoodAnalysisJson(text);
+                    if (data) {
+                        console.log(`✅ Gemini food analysis: ${data.foodName}`);
+                        return { success: true, data, source: 'gemini' };
+                    }
+                } catch (err) {
+                    const msg = err.message || '';
+                    if ((msg.includes('429') || msg.includes('RESOURCE_EXHAUSTED')) && attempt < maxRetries - 1) {
+                        const wait = 2000 * Math.pow(2, attempt);
+                        console.warn(`⚠️ Gemini rate limit, retrying in ${wait}ms...`);
+                        await new Promise(r => setTimeout(r, wait));
+                        continue;
+                    }
+                    throw err;
                 }
             }
-        ]);
+        } catch (geminiErr) {
+            console.warn('⚠️ Gemini food analysis failed, trying OpenAI:', geminiErr.message);
+        }
+    }
 
-        const response = result.response;
-        const fullResponse = response.text();
-        
-        const jsonMatch = fullResponse.match(/\{[\s\S]*\}/);
-        if (jsonMatch) {
-            const data = JSON.parse(jsonMatch[0]);
-            return {
-                success: true,
-                data: data
-            };
+    // ✅ Fallback: OpenAI GPT-4o-mini Vision
+    if (process.env.OPENAI_API_KEY) {
+        try {
+            const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+            const response = await openai.chat.completions.create({
+                model: 'gpt-4o-mini',
+                messages: [{
+                    role: 'user',
+                    content: [
+                        { type: 'text', text: FOOD_PROMPT },
+                        { type: 'image_url', image_url: { url: `data:${mimeType};base64,${base64image}` } }
+                    ]
+                }],
+                max_tokens: 350,
+            });
+            const text = response.choices[0].message.content;
+            const data = parseFoodAnalysisJson(text);
+            if (data) {
+                console.log(`✅ OpenAI food analysis: ${data.foodName}`);
+                return { success: true, data, source: 'openai' };
+            }
+        } catch (openaiErr) {
+            console.error('❌ OpenAI food fallback failed:', openaiErr.message);
+        }
+    }
+
+    return { success: false, message: 'Food analysis failed. Check API keys.' };
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// GEMINI VISION — Food Image Analysis (SSE streaming)
+// ─────────────────────────────────────────────────────────────────────────────
+export const analyseFoodImageStream = async (imagePath, res) => {
+    const FOOD_PROMPT = `Analyze this food image and return ONLY valid JSON with exactly this structure:
+{
+    "foodName": "name of the food dish",
+    "calories": 0,
+    "protein": 0,
+    "carbohydrates": 0,
+    "fat": 0,
+    "fiber": 0,
+    "sugar": 0,
+    "healthyScore": 0,
+    "description": "Brief nutritional description",
+    "portionSize": "Estimated portion size"
+}
+Only return the JSON object, no markdown, no other text.`;
+
+    try {
+        const imageData = fs.readFileSync(imagePath);
+        const base64image = imageData.toString('base64');
+        const mimeType = imagePath.endsWith('.png') ? 'image/png'
+                       : imagePath.endsWith('.webp') ? 'image/webp' : 'image/jpeg';
+
+        res.write(`event: status\ndata: ${JSON.stringify({ message: '🔍 Analyzing food with Groq Vision...' })}\n\n`);
+
+        let resultData = null;
+        let source = 'groq';
+
+        if (process.env.GROQ_API_KEY) {
+            try {
+                const groqResult = await runGroqVisionAnalysis(FOOD_PROMPT, base64image, mimeType);
+                if (groqResult?.success) {
+                    resultData = groqResult.data;
+                    source = groqResult.source;
+                }
+            } catch (groqErr) {
+                console.warn('⚠️ Groq stream failed; falling back to Gemini:', groqErr.message);
+            }
         }
 
-        return {
-            success: false,
-            message: "Could not parse response"
-        };
+        if (!resultData && process.env.GEMINI_API_KEY) {
+            source = 'gemini';
+            const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+            const model = genAI.getGenerativeModel({ model: GEMINI_MODEL });
+
+            const result = await model.generateContent([
+                FOOD_PROMPT,
+                { inlineData: { mimeType, data: base64image } }
+            ]);
+
+            resultData = parseFoodAnalysisJson(result.response.text());
+        }
+
+        if (resultData) {
+            const jsonStr = JSON.stringify(resultData, null, 2);
+
+            // Stream the JSON in small chunks for UI effect
+            const chunkSize = 10;
+            for (let i = 0; i < jsonStr.length; i += chunkSize) {
+                res.write(`event: chunk\ndata: ${JSON.stringify({ chunk: jsonStr.slice(i, i + chunkSize) })}\n\n`);
+                await new Promise(r => setTimeout(r, 20));
+            }
+
+            res.write(`event: complete\ndata: ${JSON.stringify({ success: true, data: resultData, source })}\n\n`);
+        } else {
+            res.write(`event: error\ndata: ${JSON.stringify({ message: 'Could not parse food analysis response' })}\n\n`);
+        }
 
     } catch (error) {
-        console.error('Error:', error);
-        return {
-            success: false,
-            message: error.message
-        };
+        console.error('❌ Food scan stream error:', error.message);
+        const msg = error.message.includes('429')
+            ? 'Rate limit exceeded. Please try again in a moment.'
+            : error.message;
+        res.write(`event: error\ndata: ${JSON.stringify({ message: msg })}\n\n`);
     }
+
+    res.write(`event: done\ndata: ${JSON.stringify({ message: 'Analysis complete' })}\n\n`);
+    res.end();
 };

@@ -16,6 +16,7 @@ import {
 } from "react-icons/io5";
 
 import NotificationToggle from "../components/ui/NotificationToggle";
+import InstallPwaButton from "../components/ui/InstallPwaButton";
 
 const DashboardLayout = ({ children }) => {
   const { user, logout } = useAuth();
@@ -58,17 +59,23 @@ const DashboardLayout = ({ children }) => {
     <div className="min-h-svh bg-surface-base">
       <header className="sticky top-0 z-50 border-b border-white/10 bg-surface-base/90 backdrop-blur-md">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-3 sm:px-6">
-          <div className="flex items-center gap-2.5">
-            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-brand/15 text-brand">
+          <div className="flex min-w-0 items-center gap-2.5">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand/15 text-brand">
               <IoFitnessOutline className="h-5 w-5" />
             </div>
-            <span className="text-base font-extrabold tracking-tight text-fg sm:text-lg">
+            <span className="truncate text-base font-extrabold tracking-tight text-fg sm:text-lg">
               Health AI
             </span>
           </div>
 
-          <div className="flex items-center gap-2 sm:gap-3">
-            <NotificationToggle />
+          <div className="flex items-center gap-1.5 sm:gap-2.5">
+            <div className="scale-[0.82] sm:scale-100">
+              <InstallPwaButton />
+            </div>
+
+            <div className="scale-[0.92] sm:scale-100">
+              <NotificationToggle />
+            </div>
 
             <div className="relative" ref={dropdownRef}>
               <button

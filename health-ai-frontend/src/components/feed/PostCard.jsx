@@ -95,8 +95,8 @@ export default function PostCard({ post }) {
             {userName}
           </p>
           <div className="flex items-center gap-2 text-xs text-fg-muted">
-            <span className="truncate">{post.foodName || 'Food'}</span>
-            <span>•</span>
+            {post.foodName && <span className="truncate">{post.foodName}</span>}
+            {post.foodName && <span>•</span>}
             <span className="flex items-center gap-1 whitespace-nowrap">
               <IoTimeOutline size={12} />
               {formatTime(post.createdAt)}
@@ -152,8 +152,11 @@ export default function PostCard({ post }) {
 
       {/* Content */}
       <div className="p-4 space-y-3">
+        {post.content && (
+          <p className="text-sm text-fg whitespace-pre-wrap">{post.content}</p>
+        )}
         {post.caption && (
-          <p className="text-sm text-fg">{post.caption}</p>
+          <p className="text-sm text-fg-muted italic">{post.caption}</p>
         )}
 
         {/* Actions */}

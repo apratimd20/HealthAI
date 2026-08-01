@@ -3,32 +3,53 @@
 @theme {
   --font-sans: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
     sans-serif;
-  --color-surface-base: #09090b;
-  --color-surface-muted: #0e0e11;
-  --color-surface-card: #18181b;
-  --color-surface-card-hover: #202024;
-  --color-border-default: #27272a;
-  --color-brand: #10b981;
-  --color-brand-hover: #34d399;
-  --color-fg: #fafafa;
-  --color-fg-muted: #a1a1aa;
-  --color-fg-subtle: #71717a;
+  --color-surface-base: #0b1020;
+  --color-surface-muted: #101827;
+  --color-surface-card: #111827;
+  --color-surface-card-hover: #162032;
+  --color-border-default: #233047;
+  --color-brand: #22c55e;
+  --color-brand-hover: #16a34a;
+  --color-fg: #e5edf7;
+  --color-fg-muted: #9aa7b8;
+  --color-fg-subtle: #6a778a;
   --color-danger: #ef4444;
   --color-water: #3b82f6;
   --color-sleep: #8b5cf6;
   --color-calories: #f59e0b;
   --radius-sm: 8px;
   --radius-md: 12px;
-  --radius-lg: 20px;
+  --radius-lg: 18px;
+  --radius-xl: 24px;
 }
 
 @layer base {
+  * {
+    box-sizing: border-box;
+  }
+
+  html {
+    scroll-behavior: smooth;
+    background: #0b1020;
+  }
+
   body {
-    @apply bg-surface-base text-fg font-sans antialiased overflow-x-hidden;
+    @apply min-h-svh bg-surface-base text-fg antialiased overflow-x-hidden font-sans;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 
   #root {
     @apply min-h-svh w-full;
+  }
+
+  a, button, input, select, textarea {
+    @apply transition-all duration-200;
+  }
+
+  ::selection {
+    background: rgba(34, 197, 94, 0.2);
   }
 
   ::-webkit-scrollbar {
@@ -50,18 +71,24 @@
 }
 
 @utility glass-panel {
-  background: rgba(24, 24, 27, 0.7);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  background: rgba(17, 24, 39, 0.92);
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  box-shadow: 0 20px 45px rgba(15, 23, 42, 0.2);
 }
 
 @utility form-select {
-  @apply w-full rounded-md border border-border-default bg-surface-base px-3 py-2.5 text-sm text-fg transition-colors;
-  @apply focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand;
+  @apply w-full rounded-lg border border-border-default bg-surface-base px-3.5 py-2.5 text-sm text-fg transition-colors;
+  @apply focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20;
 }
 
-/* Hide scrollbar for nav */
+@utility app-shell {
+  @apply mx-auto w-full max-w-7xl px-3 sm:px-4 lg:px-6;
+}
+
+@utility section-card {
+  @apply rounded-2xl border border-border-default bg-surface-card shadow-[0_8px_24px_rgba(15,23,42,0.12)];
+}
+
 .scrollbar-hide::-webkit-scrollbar {
   display: none;
 }
