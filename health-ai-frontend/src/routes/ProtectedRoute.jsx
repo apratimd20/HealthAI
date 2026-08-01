@@ -4,12 +4,9 @@ import { useAuth } from '../context/AuthContext';
 import Loader from '../components/ui/Loader';
 
 const RouteLoadingState = ({ label = 'Preparing your workspace...' }) => (
-  <div className="min-h-screen bg-zinc-950 px-4 py-10 text-zinc-100">
-    <div className="mx-auto flex min-h-[60vh] max-w-md items-center justify-center rounded-2xl border border-zinc-800 bg-zinc-900/70 shadow-2xl shadow-black/20">
-      <div className="flex flex-col items-center gap-4">
-        <Loader size="md" text={label} />
-        <p className="text-sm text-zinc-400">{label}</p>
-      </div>
+  <div className="flex min-h-screen items-center justify-center bg-surface-base px-4">
+    <div className="rounded-2xl border border-border-default bg-surface-card/80 px-6 py-8 shadow-[0_20px_60px_rgba(0,0,0,0.28)] backdrop-blur-sm">
+      <Loader size="md" text={label} />
     </div>
   </div>
 );

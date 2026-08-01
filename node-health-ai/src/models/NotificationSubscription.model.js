@@ -8,6 +8,10 @@ const notificationSubscriptionSchema = new mongoose.Schema({
     required: true,
     unique: true
   },
+  enabled: {
+    type: Boolean,
+    default: true
+  },
   subscription: {
     endpoint: { type: String, required: true },
     keys: {

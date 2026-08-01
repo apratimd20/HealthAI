@@ -60,6 +60,7 @@ export const subscribeToPush = async (req, res) => {
       { 
         subscription: subscription,
         userId: req.user._id,
+        enabled: true,
         updatedAt: new Date()
       },
       { upsert: true, new: true }
@@ -80,7 +81,15 @@ export const subscribeToPush = async (req, res) => {
 
 export const unsubscribeFromPush = async (req, res) => {
   try {
-    await NotificationSubscription.findOneAndDelete({ userId: req.user._id });
+    await NotificationSubscription.findOneAndUpdate(
+      { userId: req.user._id },
+      {
+        enabled: false,
+        subscription: null,
+        updatedAt: new Date()
+      },
+      { upsert: true, new: true }
+    );
 
     return res.status(200).json({
       success: true,
@@ -102,9 +111,13 @@ export const sendPushNotification = async (userId, title, body, data = {}) => {
       return false;
     }
 
-    const subscription = await NotificationSubscription.findOne({ userId });
+    const subscription = await NotificationSubscription.findOne({
+      userId,
+      enabled: true,
+      subscription: { $ne: null }
+    });
     if (!subscription) {
-      console.log('No push subscription found for user');
+      console.log('No active push subscription found for user');
       return false;
     }
 
@@ -138,7 +151,11 @@ export const sendPushNotification = async (userId, title, body, data = {}) => {
     console.error('Push notification error:', error);
     
     if (error.statusCode === 410) {
-      await NotificationSubscription.findOneAndDelete({ userId });
+      await NotificationSubscription.findOneAndUpdate(
+        { userId },
+        { enabled: false, subscription: null, updatedAt: new Date() },
+        { new: true }
+      );
       console.log('Removed expired subscription');
     }
     
@@ -180,7 +197,7 @@ export const sendTimedNotifications = async (req, res) => {
 
     const currentHour = new Date().getHours();
     
-    const subscriptions = await NotificationSubscription.find()
+    const subscriptions = await NotificationSubscription.find({ enabled: true })
       .populate('userId', 'name email');
     
     let sentCount = 0;

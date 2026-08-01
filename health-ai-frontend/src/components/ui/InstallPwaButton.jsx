@@ -87,18 +87,18 @@ export default function InstallPwaButton({ className = '' }) {
       <button
         type="button"
         onClick={handleInstall}
-        className={`inline-flex h-9 max-w-[120px] items-center justify-center gap-1.5 rounded-full border border-brand/40 bg-brand/12 px-2.5 py-1.5 text-[10px] font-semibold text-brand transition-all duration-200 hover:bg-brand/18 hover:shadow-[0_0_12px_rgba(16,185,129,0.2)] sm:max-w-none sm:gap-2 sm:px-3 sm:text-xs ${className}`}
+        className={`inline-flex h-8 shrink-0 items-center justify-center gap-1 rounded-full border border-brand/40 bg-brand/12 px-2.5 text-[9px] font-semibold text-brand transition-all duration-200 hover:bg-brand/18 hover:shadow-[0_0_12px_rgba(16,185,129,0.2)] sm:h-9 sm:gap-2 sm:px-3 sm:text-xs ${className}`}
         title="Install Health AI app"
         aria-label="Install Health AI app"
       >
-        <IoDownloadOutline size={15} className="shrink-0" />
+        <IoDownloadOutline size={13} className="shrink-0 sm:size-[15px]" />
         <span className="hidden sm:inline">Install App</span>
         <span className="block sm:hidden">Install</span>
       </button>
 
       {showConfirmModal && (
-        <div className="fixed inset-0 right-10 z-[60] flex items-start justify-center  p-2  sm:pt-[20vh]  sm:p-3">
-          <div className="relative w-[min(74vw,300px)] rounded-2xl border border-white/10 bg-surface-card p-3  sm:w-[min(72vw,320px)] sm:p-4">
+        <div className="fixed inset-0 z-[60] flex items-start justify-center bg-black/70 p-2 pt-[18vh] backdrop-blur-sm sm:p-3 sm:pt-[20vh]">
+          <div className="relative w-[min(74vw,300px)] rounded-2xl border border-white/10 bg-surface-card p-3 shadow-[0_18px_60px_rgba(0,0,0,0.45)] sm:w-[min(72vw,320px)] sm:p-4">
             <button
               type="button"
               onClick={() => setShowConfirmModal(false)}

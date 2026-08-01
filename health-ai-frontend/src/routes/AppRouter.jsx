@@ -11,8 +11,10 @@ const Feed = lazy(() => import('../pages/Feed'));
 const AdminPanel = lazy(() => import('../pages/AdminPanel'));
 
 const routeFallback = (
-  <div className="flex min-h-screen items-center justify-center bg-zinc-950">
-    <Loader size="md" text="Loading screen..." />
+  <div className="flex min-h-screen items-center justify-center bg-surface-base px-4">
+    <div className="rounded-2xl border border-border-default bg-surface-card/80 px-6 py-8 shadow-[0_20px_60px_rgba(0,0,0,0.28)] backdrop-blur-sm">
+      <Loader size="md" text="Opening Health AI" />
+    </div>
   </div>
 );
 

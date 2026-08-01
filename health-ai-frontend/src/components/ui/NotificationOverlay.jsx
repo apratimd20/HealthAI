@@ -31,14 +31,14 @@ export default function NotificationOverlay({ refreshTrigger }) {
   useEffect(() => {
     const fetchNotifications = async () => {
       try {
+        const notificationsEnabled = localStorage.getItem('health-ai-notification-enabled') === 'true';
         const currentHour = new Date().getHours();
         const response = await healthService.getNotifications(currentHour);
         if (response.success && response.data) {
           setNotifications(response.data);
           setClosed(false);
-          
-          // Send push notification if enabled
-          if (notificationService.isSupported && response.data.length > 0) {
+
+          if (notificationsEnabled && notificationService.isSupported && response.data.length > 0) {
             const topNotification = response.data[0];
             await sendPushNotification(topNotification);
           }
@@ -55,29 +55,31 @@ export default function NotificationOverlay({ refreshTrigger }) {
 
   const sendPushNotification = async (notification) => {
     try {
-      // Check if notification permission is granted
-      if (Notification.permission === 'granted') {
-        const title = getNotificationTitle(notification.category);
-        const body = notification.text;
-        
-        // Use Service Worker for push if available
-        if ('serviceWorker' in navigator) {
-          const registration = await navigator.serviceWorker.ready;
-          registration.showNotification(title, {
-            body: body,
-            icon: '/icon-192.png',
-            badge: '/badge-72.png',
-            tag: `health-${Date.now()}`,
-            requireInteraction: true,
-            vibrate: [200, 100, 200],
-          });
-        } else {
-          // Fallback to regular notification
-          new Notification(title, {
-            body: body,
-            icon: '/icon-192.png',
-          });
-        }
+      const notificationsEnabled = localStorage.getItem('health-ai-notification-enabled') === 'true';
+      const permissionGranted = typeof Notification !== 'undefined' && Notification.permission === 'granted';
+
+      if (!notificationsEnabled || !permissionGranted) {
+        return;
+      }
+
+      const title = getNotificationTitle(notification.category);
+      const body = notification.text;
+
+      if ('serviceWorker' in navigator) {
+        const registration = await navigator.serviceWorker.ready;
+        registration.showNotification(title, {
+          body: body,
+          icon: '/icon-192.png',
+          badge: '/badge-72.png',
+          tag: `health-${Date.now()}`,
+          requireInteraction: true,
+          vibrate: [200, 100, 200],
+        });
+      } else {
+        new Notification(title, {
+          body: body,
+          icon: '/icon-192.png',
+        });
       }
     } catch (error) {
       console.error('Push notification error:', error);
