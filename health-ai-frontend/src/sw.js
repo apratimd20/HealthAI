@@ -1,5 +1,5 @@
 import { precacheAndRoute, cleanupOutdatedCaches } from 'workbox-precaching';
-import { registerRoute, NavigationRoute } from 'workbox-routing';
+import { registerRoute } from 'workbox-routing';
 import { NetworkFirst, CacheFirst } from 'workbox-strategies';
 import { ExpirationPlugin } from 'workbox-expiration';
 
@@ -34,11 +34,23 @@ registerRoute(
   })
 );
 
-const offlineNavigation = new NavigationRoute({
-  handler: async () => {
-    const response = await caches.match('/offline.html');
-    return response || Response.error();
-  },
-});
+registerRoute(
+  ({ request, url }) =>
+    request.mode === 'navigate' &&
+    url.origin === self.location.origin &&
+    !url.pathname.startsWith('/api/') &&
+    !url.pathname.startsWith('/_'),
+  async ({ request }) => {
+    const cachedIndex = await caches.match('/index.html');
 
-registerRoute(offlineNavigation);
+    if (cachedIndex) {
+      return cachedIndex;
+    }
+
+    try {
+      return await fetch(request);
+    } catch {
+      return Response.error();
+    }
+  }
+);
