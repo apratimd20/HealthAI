@@ -91,6 +91,33 @@ class NotificationService {
     return outputArray;
   }
 
+  async unsubscribeFromPush() {
+    try {
+      if (!('serviceWorker' in navigator)) return false;
+
+      const registrations = await navigator.serviceWorker.getRegistrations();
+      for (const registration of registrations) {
+        if (!registration.pushManager) continue;
+
+        const subscription = await registration.pushManager.getSubscription();
+        if (subscription) {
+          await subscription.unsubscribe();
+        }
+      }
+
+      try {
+        await api.post('/notifications/unsubscribe');
+      } catch (error) {
+        console.warn('Unsubscribe API call failed, continuing locally:', error);
+      }
+
+      return true;
+    } catch (error) {
+      console.error('Unsubscribe error:', error);
+      throw error;
+    }
+  }
+
   async sendTestNotification() {
     try {
       const response = await api.post('/api/notifications/test');

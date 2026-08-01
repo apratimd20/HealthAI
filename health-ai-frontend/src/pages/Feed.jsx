@@ -30,6 +30,28 @@ export default function Feed() {
   const [showTrending, setShowTrending] = useState(false);
 
   useEffect(() => {
+    const cachedFeed = sessionStorage.getItem('healthai_feed_cache');
+    const cachedTrending = sessionStorage.getItem('healthai_trending_cache');
+
+    if (cachedFeed) {
+      try {
+        const parsedFeed = JSON.parse(cachedFeed);
+        if (parsedFeed.posts) {
+          const feedCtx = JSON.parse(JSON.stringify(parsedFeed.posts));
+          // useFeed context is not directly settable here, so fallback refresh is used when needed
+          if (feedCtx.length && posts.length === 0) {
+            window.__HEALTHAI_FEED_CACHE__ = feedCtx;
+          }
+        }
+      } catch (error) {
+        console.warn('Feed cache parse failed:', error);
+      }
+    }
+
+    if (cachedFeed && cachedTrending) {
+      return;
+    }
+
     loadFeed(true);
     loadTrending();
   }, []);
@@ -37,6 +59,7 @@ export default function Feed() {
   const handleRefresh = async () => {
     setRefreshing(true);
     await loadFeed(true);
+    await loadTrending();
     setRefreshing(false);
   };
 

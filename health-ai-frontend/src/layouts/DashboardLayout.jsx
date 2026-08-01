@@ -111,14 +111,14 @@ const DashboardLayout = ({ children }) => {
 
       {/* Navigation Bar */}
       <nav className="sticky top-18 z-30 border-b border-white/5 bg-surface-base/80 backdrop-blur-sm">
-        <div className="mx-auto max-w-6xl px-4 sm:px-6">
-          <div className="flex gap-1 overflow-x-auto py-2 scrollbar-hide">
+        <div className="mx-auto max-w-6xl px-3 sm:px-6">
+          <div className="flex gap-2 overflow-x-auto py-2 scrollbar-hide">
             {navItems.map((item) => (
               <NavLink
                 key={item.path}
                 to={item.path}
                 className={({ isActive }) =>
-                  `flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-all whitespace-nowrap ${
+                  `flex shrink-0 items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium transition-all whitespace-nowrap sm:px-4 sm:text-sm ${
                     isActive
                       ? "bg-brand/20 text-brand shadow-sm"
                       : "text-fg-muted hover:bg-surface-muted hover:text-fg"

@@ -6,8 +6,22 @@ import toast from 'react-hot-toast';
 const FeedContext = createContext(null);
 
 export const FeedProvider = ({ children }) => {
-    const [posts, setPosts] = useState([]);
-    const [trending, setTrending] = useState([]);
+    const [posts, setPosts] = useState(() => {
+        try {
+            const cached = sessionStorage.getItem('healthai_feed_cache');
+            return cached ? JSON.parse(cached).posts || [] : [];
+        } catch (error) {
+            return [];
+        }
+    });
+    const [trending, setTrending] = useState(() => {
+        try {
+            const cached = sessionStorage.getItem('healthai_trending_cache');
+            return cached ? JSON.parse(cached).posts || [] : [];
+        } catch (error) {
+            return [];
+        }
+    });
     const [loading, setLoading] = useState(false);
     const [hasMore, setHasMore] = useState(true);
     const [page, setPage] = useState(1);
@@ -24,14 +38,11 @@ export const FeedProvider = ({ children }) => {
             const response = await feedService.getFeed(currentPage);
             
             if (response.success) {
-                if (reset) {
-                    setPosts(response.data);
-                    setPage(2);
-                } else {
-                    setPosts(prev => [...prev, ...response.data]);
-                    setPage(prev => prev + 1);
-                }
+                const nextPosts = reset ? response.data : [...posts, ...response.data];
+                setPosts(nextPosts);
+                setPage(reset ? 2 : page + 1);
                 setHasMore(response.pagination?.hasMore || false);
+                sessionStorage.setItem('healthai_feed_cache', JSON.stringify({ posts: nextPosts }));
             }
         } catch (error) {
             console.error('Load feed error:', error);
@@ -40,7 +51,7 @@ export const FeedProvider = ({ children }) => {
             setLoading(false);
             isInitialLoad.current = false;
         }
-    }, [loading, page]);
+    }, [loading, page, posts]);
 
     // ============ LOAD TRENDING ============
     const loadTrending = useCallback(async () => {
@@ -48,6 +59,7 @@ export const FeedProvider = ({ children }) => {
             const response = await feedService.getTrending();
             if (response.success) {
                 setTrending(response.data);
+                sessionStorage.setItem('healthai_trending_cache', JSON.stringify({ posts: response.data }));
             }
         } catch (error) {
             console.error('Load trending error:', error);

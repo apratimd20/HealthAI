@@ -1,28 +1,65 @@
 // src/components/ui/NotificationToggle.jsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { notificationService } from '../../services/notificationService';
 import { IoNotificationsOutline, IoNotificationsOffOutline } from 'react-icons/io5';
 import toast from 'react-hot-toast';
 
+const STORAGE_KEY = 'health-ai-notification-enabled';
+const TOGGLE_COOLDOWN_MS = 1200;
+
 export default function NotificationToggle({ className = '' }) {
-  const [enabled, setEnabled] = useState(false);
+  const [enabled, setEnabled] = useState(() => {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (stored !== null) {
+      return stored === 'true';
+    }
+    return 'Notification' in window ? Notification.permission === 'granted' : false;
+  });
   const [loading, setLoading] = useState(false);
+  const lastToggleRef = useRef(0);
 
   useEffect(() => {
-    if ('Notification' in window) {
-      setEnabled(Notification.permission === 'granted');
+    localStorage.setItem(STORAGE_KEY, String(enabled));
+  }, [enabled]);
+
+  useEffect(() => {
+    if (!('Notification' in window)) return;
+
+    const storedValue = localStorage.getItem(STORAGE_KEY);
+    if (storedValue !== null) {
+      setEnabled(storedValue === 'true' && Notification.permission === 'granted');
+      return;
     }
+
+    setEnabled(Notification.permission === 'granted');
   }, []);
 
   const toggleNotifications = async () => {
+    const now = Date.now();
+    if (now - lastToggleRef.current < TOGGLE_COOLDOWN_MS) {
+      toast.error('Please wait a moment before changing notification settings again.');
+      return;
+    }
+    lastToggleRef.current = now;
+
     if (!('Notification' in window)) {
       toast.error('Push notifications are not supported by your browser');
       return;
     }
 
     if (enabled) {
-      setEnabled(false);
-      toast('Notifications disabled for this session', { icon: '🔕' });
+      try {
+        setLoading(true);
+        await notificationService.unsubscribeFromPush();
+        setEnabled(false);
+        localStorage.setItem(STORAGE_KEY, 'false');
+        toast('Notifications turned off on this device', { icon: '🔕' });
+      } catch (error) {
+        console.error('Disable notifications error:', error);
+        toast.error('Failed to turn notifications off');
+      } finally {
+        setLoading(false);
+      }
       return;
     }
 
@@ -35,8 +72,9 @@ export default function NotificationToggle({ className = '' }) {
 
       if (permission === 'granted') {
         setEnabled(true);
+        localStorage.setItem(STORAGE_KEY, 'true');
         toast.success('🔔 Notifications enabled! You will receive updates even when app is closed.');
-        
+
         try {
           await notificationService.subscribeToPush();
         } catch (subErr) {
@@ -44,9 +82,11 @@ export default function NotificationToggle({ className = '' }) {
         }
       } else if (permission === 'denied') {
         setEnabled(false);
+        localStorage.setItem(STORAGE_KEY, 'false');
         toast.error('❌ Notifications blocked. Please enable them in browser site settings.');
       } else {
         setEnabled(false);
+        localStorage.setItem(STORAGE_KEY, 'false');
         toast('Notification permission was not granted', { icon: 'ℹ️' });
       }
     } catch (error) {
@@ -79,7 +119,6 @@ export default function NotificationToggle({ className = '' }) {
         {enabled ? 'Alerts ON' : 'Allow Alerts'}
       </span>
 
-      {/* Small toggle indicator pill */}
       <span
         className={`ml-0.5 h-2 w-2 rounded-full transition-colors ${
           enabled ? 'bg-brand shadow-[0_0_8px_#10B981]' : 'bg-fg-subtle/40'

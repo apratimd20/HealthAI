@@ -47,7 +47,39 @@ export default function Dashboard() {
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [isScannerOpen, setIsScannerOpen] = useState(false);
 
-  const fetchDashboardData = useCallback(async () => {
+  const DASHBOARD_CACHE_KEY = 'healthai_dashboard_cache';
+
+  const writeDashboardCache = useCallback((nextGoal, nextPlan) => {
+    try {
+      sessionStorage.setItem(
+        DASHBOARD_CACHE_KEY,
+        JSON.stringify({
+          goal: nextGoal,
+          plan: nextPlan,
+          savedAt: Date.now(),
+        })
+      );
+    } catch (error) {
+      console.warn('Dashboard cache write failed:', error);
+    }
+  }, [DASHBOARD_CACHE_KEY]);
+
+  const fetchDashboardData = useCallback(async (forceRefresh = false) => {
+    const cached = !forceRefresh ? sessionStorage.getItem(DASHBOARD_CACHE_KEY) : null;
+
+    if (cached && !forceRefresh) {
+      try {
+        const parsed = JSON.parse(cached);
+        setGoal(parsed.goal || null);
+        setPlan(parsed.plan || null);
+        updateGoalStatus(Boolean(parsed.goal));
+        setLoading(false);
+        return;
+      } catch (error) {
+        console.warn('Dashboard cache parse failed, refetching:', error);
+      }
+    }
+
     try {
       setLoading(true);
       let activeGoal = null;
@@ -63,29 +95,28 @@ export default function Dashboard() {
         }
       }
 
-      setGoal(activeGoal);
-      updateGoalStatus(!!activeGoal);
-
+      let activePlan = null;
       if (activeGoal) {
         const planRes = await healthService.getTodayPlan();
         if (planRes.success) {
-          setPlan(planRes.data);
-        } else {
-          setPlan(null);
+          activePlan = planRes.data;
         }
-      } else {
-        setPlan(null);
       }
+
+      setGoal(activeGoal);
+      setPlan(activePlan);
+      updateGoalStatus(!!activeGoal);
+      writeDashboardCache(activeGoal, activePlan);
     } catch (error) {
       console.error(error);
       toast.error('Failed to load dashboard data');
     } finally {
       setLoading(false);
     }
-  }, [updateGoalStatus]);
+  }, [updateGoalStatus, writeDashboardCache, DASHBOARD_CACHE_KEY]);
 
   useEffect(() => {
-    fetchDashboardData();
+    fetchDashboardData(false);
   }, [fetchDashboardData]);
 
   useEffect(() => {

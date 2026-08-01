@@ -46,6 +46,7 @@ export default function AppRouter() {
         }
       />
 
+      <Route path="/" element={<Navigate to="/dashboard" replace />} />
       <Route path="/onboarding" element={<Navigate to="/dashboard" replace />} />
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>
