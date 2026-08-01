@@ -3,15 +3,22 @@ import { Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import Loader from '../components/ui/Loader';
 
+const RouteLoadingState = ({ label = 'Preparing your workspace...' }) => (
+  <div className="min-h-screen bg-zinc-950 px-4 py-10 text-zinc-100">
+    <div className="mx-auto flex min-h-[60vh] max-w-md items-center justify-center rounded-2xl border border-zinc-800 bg-zinc-900/70 shadow-2xl shadow-black/20">
+      <div className="flex flex-col items-center gap-4">
+        <Loader size="md" text={label} />
+        <p className="text-sm text-zinc-400">{label}</p>
+      </div>
+    </div>
+  </div>
+);
+
 export const ProtectedRoute = ({ children }) => {
   const { isAuthenticated, loading } = useAuth();
 
   if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-zinc-950">
-        <Loader text="Loading..." />
-      </div>
-    );
+    return <RouteLoadingState label="Checking your session..." />;
   }
 
   if (!isAuthenticated) {
@@ -25,11 +32,7 @@ export const PublicRoute = ({ children }) => {
   const { isAuthenticated, isAdmin, loading } = useAuth();
 
   if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-zinc-950">
-        <Loader text="Loading..." />
-      </div>
-    );
+    return <RouteLoadingState label="Preparing the app..." />;
   }
 
   if (isAuthenticated) {
@@ -43,11 +46,7 @@ export const AdminRoute = ({ children }) => {
   const { isAuthenticated, isAdmin, loading } = useAuth();
 
   if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-zinc-950">
-        <Loader text="Loading..." />
-      </div>
-    );
+    return <RouteLoadingState label="Loading admin tools..." />;
   }
 
   if (!isAuthenticated) {

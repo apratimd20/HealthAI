@@ -16,6 +16,7 @@ import {
 } from "react-icons/io5";
 
 import NotificationToggle from "../components/ui/NotificationToggle";
+import InstallPwaButton from "../components/ui/InstallPwaButton";
 
 const DashboardLayout = ({ children }) => {
   const { user, logout } = useAuth();
@@ -67,7 +68,11 @@ const DashboardLayout = ({ children }) => {
             </span>
           </div>
 
-          <div className="flex items-center gap-2 sm:gap-3">
+          <div className="flex items-center gap-1.5 sm:gap-2.5">
+            <div className="scale-[0.82] sm:scale-100">
+              <InstallPwaButton />
+            </div>
+
             <div className="scale-[0.92] sm:scale-100">
               <NotificationToggle />
             </div>
