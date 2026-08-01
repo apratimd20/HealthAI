@@ -1,7 +1,8 @@
 // routes/notification.routes.js
 import express from 'express';
 import { 
-  subscribeToPush, 
+  subscribeToPush,
+  unsubscribeFromPush,
   sendTimedNotifications,
   sendTestNotification 
 } from '../controllers/notification.controller.js';
@@ -10,6 +11,7 @@ import { authUser } from '../middleware/user.middleware.js';
 export const NotificationRouter = express.Router();
 
 NotificationRouter.post('/subscribe', authUser, subscribeToPush);
+NotificationRouter.post('/unsubscribe', authUser, unsubscribeFromPush);
 NotificationRouter.post('/send-timed', authUser, sendTimedNotifications);
 
 // Test endpoint (remove in production)

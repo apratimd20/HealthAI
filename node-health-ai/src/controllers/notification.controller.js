@@ -78,6 +78,23 @@ export const subscribeToPush = async (req, res) => {
   }
 };
 
+export const unsubscribeFromPush = async (req, res) => {
+  try {
+    await NotificationSubscription.findOneAndDelete({ userId: req.user._id });
+
+    return res.status(200).json({
+      success: true,
+      message: '✅ Push subscription removed successfully'
+    });
+  } catch (error) {
+    console.error('Unsubscribe error:', error);
+    return res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
+
 export const sendPushNotification = async (userId, title, body, data = {}) => {
   try {
     if (!process.env.VAPID_PUBLIC_KEY || !process.env.VAPID_PRIVATE_KEY) {

@@ -117,7 +117,7 @@ const DashboardLayout = ({ children }) => {
       </header>
 
       {/* Navigation Bar */}
-      <nav className="sticky top-18 z-30 border-b border-white/5 bg-surface-base/80 backdrop-blur-sm">
+      <nav className="sticky top-16  sm:top-18 z-30 border-b border-white/5 bg-surface-base/80 backdrop-blur-sm">
         <div className="mx-auto max-w-6xl px-3 sm:px-6">
           <div className="flex gap-2 overflow-x-auto py-2 scrollbar-hide">
             {navItems.map((item) => (

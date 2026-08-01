@@ -56,6 +56,15 @@ class NotificationService {
         this.swRegistration = await navigator.serviceWorker.ready;
       }
 
+      const existingSubscription = await this.swRegistration.pushManager.getSubscription();
+      if (existingSubscription) {
+        console.log('Push subscription already exists');
+        await api.post('/notifications/subscribe', {
+          subscription: existingSubscription
+        });
+        return existingSubscription;
+      }
+
       const subscription = await this.swRegistration.pushManager.subscribe({
         userVisibleOnly: true,
         applicationServerKey: this.urlBase64ToUint8Array(
@@ -96,12 +105,15 @@ class NotificationService {
       if (!('serviceWorker' in navigator)) return false;
 
       const registrations = await navigator.serviceWorker.getRegistrations();
+      let unsubscribed = false;
+
       for (const registration of registrations) {
         if (!registration.pushManager) continue;
 
         const subscription = await registration.pushManager.getSubscription();
         if (subscription) {
-          await subscription.unsubscribe();
+          const result = await subscription.unsubscribe();
+          unsubscribed = unsubscribed || result;
         }
       }
 
@@ -111,7 +123,7 @@ class NotificationService {
         console.warn('Unsubscribe API call failed, continuing locally:', error);
       }
 
-      return true;
+      return unsubscribed || true;
     } catch (error) {
       console.error('Unsubscribe error:', error);
       throw error;

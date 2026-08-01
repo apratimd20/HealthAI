@@ -9,10 +9,12 @@ import { notificationService } from './services/notificationService';
 
 function App() {
   useEffect(() => {
-    // Initialize push notifications
+    // Initialize push notifications only if the user explicitly enabled them
     const initNotifications = async () => {
       try {
-        if (notificationService.isSupported) {
+        const userEnabledNotifications = localStorage.getItem('health-ai-notification-enabled') === 'true';
+
+        if (notificationService.isSupported && userEnabledNotifications) {
           const granted = await notificationService.init();
           if (granted) {
             console.log('Push notifications enabled');
@@ -24,8 +26,8 @@ function App() {
         console.error('Notification initialization error:', error);
       }
     };
-    
-    // Only initialize if user is logged in
+
+    // Only initialize if user is logged in and has previously enabled notifications
     const token = localStorage.getItem('token');
     if (token) {
       initNotifications();
