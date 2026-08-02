@@ -1,7 +1,7 @@
 
 import Goal from "../models/goal.models.js";
 import User from "../models/user.models.js";
-import { generateChatResponse, generateHealthChatStream } from "../services/chat.services.js";
+import { generateChatResponse, generateDoctorResponse, generateHealthChatStream } from "../services/chat.services.js";
 
 // Regular (non-streaming) chat
 export const chatWithAI = async (req, res) => {
@@ -71,6 +71,45 @@ export const chatWithAIStream = async (req, res) => {
         }
         res.write(`event: error\ndata: ${JSON.stringify({ message: error.message })}\n\n`);
         res.end();
+    }
+};
+
+export const chatWithDoctorAI = async (req, res) => {
+    try {
+        const { message, history } = req.body;
+
+        if (!message) {
+            return res.status(400).json({
+                success: false,
+                message: 'Message is required',
+            });
+        }
+
+        const user = await User.findById(req.user._id);
+        const goal = await Goal.findOne({
+            user: req.user._id,
+            status: 'active',
+        });
+
+        const normalizedHistory = Array.isArray(history)
+            ? history.map((entry) => ({
+                role: entry.role === 'assistant' ? 'assistant' : 'user',
+                content: entry.content || entry.text || '',
+            })).filter((entry) => entry.content)
+            : [];
+
+        const response = await generateDoctorResponse(message, user, goal, normalizedHistory);
+
+        return res.status(200).json({
+            success: true,
+            data: response,
+        });
+    } catch (error) {
+        console.error('Doctor chat error:', error);
+        return res.status(500).json({
+            success: false,
+            message: error.message || 'Failed to generate doctor response',
+        });
     }
 };
 

@@ -8,6 +8,7 @@ const Login = lazy(() => import('../pages/Login'));
 const Register = lazy(() => import('../pages/Register'));
 const Dashboard = lazy(() => import('../pages/Dashboard'));
 const Feed = lazy(() => import('../pages/Feed'));
+const TalkWithDoctorPage = lazy(() => import('../pages/TalkWithDoctor/TalkWithDoctorPage'));
 const AdminPanel = lazy(() => import('../pages/AdminPanel'));
 
 const routeFallback = (
@@ -62,6 +63,15 @@ export default function AppRouter() {
           element={
             <ProtectedRoute>
               <Feed />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/doctor"
+          element={
+            <ProtectedRoute>
+              <TalkWithDoctorPage />
             </ProtectedRoute>
           }
         />
