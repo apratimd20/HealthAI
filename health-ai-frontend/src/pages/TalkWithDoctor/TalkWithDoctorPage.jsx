@@ -12,11 +12,7 @@ import ChatDrawer from './components/ChatDrawer';
 import Button from '../../components/ui/Button';
 
 /**
- * Talk with AI Doctor — Phase 2.
- * A full-screen, video-call style voice consultation with an animated AI doctor.
- *
- * This page is deliberately rendered without DashboardLayout so it feels like a
- * real call. Ending the call returns the user to the dashboard.
+ * Talk with AI Doctor — full-screen, video-call style consultation.
  */
 const TalkWithDoctorPage = () => {
   const navigate = useNavigate();
@@ -29,15 +25,16 @@ const TalkWithDoctorPage = () => {
     isChatOpen,
     isListening,
     isSpeaking,
+    isThinking,
     sttSupported,
     recognitionError,
     startConversation,
+    sendTextMessage,
     toggleMic,
     toggleChat,
     endCall,
   } = useConversation();
 
-  // Surface recognition errors (permission, unsupported, network) as toasts.
   useEffect(() => {
     if (recognitionError) {
       toast.error(recognitionError);
@@ -50,7 +47,7 @@ const TalkWithDoctorPage = () => {
   }, [endCall, navigate]);
 
   return (
-    <div className="relative flex h-screen flex-col overflow-hidden bg-slate-950">
+    <div className="relative flex h-dvh flex-col overflow-hidden bg-slate-950 pb-[env(safe-area-inset-bottom)]">
       {/* Ambient background glow */}
       <div className="pointer-events-none absolute inset-0">
         <div className="absolute -top-32 left-1/2 h-96 w-96 -translate-x-1/2 rounded-full bg-emerald-500/15 blur-[120px]" />
@@ -61,73 +58,75 @@ const TalkWithDoctorPage = () => {
       {/* Top bar */}
       <DoctorHeader onEndCall={handleEndCall} />
 
-      {/* Main stage */}
-      <main className="relative z-10 flex flex-1 flex-col items-center justify-center px-4 pb-28 pt-2">
-        {/* Avatar stage */}
+      {/* Main stage — moved up */}
+      <main className="relative z-10 flex flex-1 flex-col items-center justify-center overflow-hidden px-4 pt-2">
+        {/* Avatar stage — centered higher */}
         <motion.div
           initial={{ opacity: 0, scale: 0.96 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.5 }}
-          className="relative w-full max-w-[460px]"
+          className="relative w-full max-w-[400px] sm:max-w-[460px] lg:max-w-[520px] flex-1 flex flex-col justify-center"
         >
           {/* Avatar */}
-          <div className="relative h-[46vh] min-h-[320px] max-h-[520px] w-full">
+          <div className="relative h-[50dvh] min-h-[340px] max-h-[520px] w-full lg:max-h-[600px]">
             <DoctorAvatar status={status} isSpeaking={isSpeaking && !isMicMuted} />
           </div>
 
-          {/* Doctor name + speech equalizer */}
-          <div className="mt-4 flex flex-col items-center gap-2">
-            <h2 className="text-2xl font-extrabold tracking-tight text-white">AI Doctor</h2>
-            <p className="text-sm text-slate-400">Your virtual health assistant</p>
-            <div className="mt-1 flex items-center gap-2">
-              <SpeechPlayer isSpeaking={isSpeaking} isMuted={isMicMuted} />
-            </div>
-          </div>
-        </motion.div>
-
-        {/* Status indicator */}
-        <div className="mt-5">
-          <ConversationStatus status={status} />
-        </div>
-
-        {/* Start overlay */}
-        {!isConversationStarted && (
-          <motion.div
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="mt-6 flex flex-col items-center gap-4"
-          >
-            <p className="text-sm text-slate-400">
-              {sttSupported
-                ? 'Start a private, hands-free voice consultation with the AI doctor.'
-                : 'Voice is not supported in this browser. Enable microphone access in Chrome/Edge.'}
-            </p>
-            <Button
-              onClick={startConversation}
-              size="lg"
-              className="px-8 shadow-[0_0_40px_rgba(16,185,129,0.35)]"
+          {/* Start button OVER the avatar (z-20) */}
+          {!isConversationStarted && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ type: 'spring', stiffness: 260, damping: 20 }}
+              className="absolute bottom-0 left-1/2 -translate-x-1/2 z-20 mb-4"
             >
-              Start Call
-            </Button>
-          </motion.div>
-        )}
+              <Button
+                onClick={startConversation}
+                size="lg"
+                className="px-8 shadow-[0_0_40px_rgba(16,185,129,0.45),0_10px_30px_rgba(0,0,0,0.5)]"
+              >
+                Start Call
+              </Button>
+            </motion.div>
+          )}
+
+          {/* Voice/listening status + equalizer — only when active */}
+          {isConversationStarted && (
+            <motion.div
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="mt-4 flex flex-col items-center gap-2"
+            >
+              <ConversationStatus status={status} />
+              {(isSpeaking || isListening) && !isMicMuted && (
+                <SpeechPlayer isSpeaking={isSpeaking} isMuted={isMicMuted} />
+              )}
+            </motion.div>
+          )}
+        </motion.div>
       </main>
 
-      {/* Bottom floating controls */}
-      <CallControls
-        isMicMuted={isMicMuted}
-        isListening={isListening}
-        isChatOpen={isChatOpen}
-        onToggleMic={toggleMic}
-        onToggleChat={toggleChat}
-        onEndCall={handleEndCall}
-      />
+      {/* Bottom floating controls — moved up */}
+      {isConversationStarted && (
+        <div className="mb-4">
+          <CallControls
+            isMicMuted={isMicMuted}
+            isListening={isListening}
+            isChatOpen={isChatOpen}
+            onToggleMic={toggleMic}
+            onToggleChat={toggleChat}
+            onEndCall={handleEndCall}
+          />
+        </div>
+      )}
 
       {/* Right chat drawer */}
       <ChatDrawer
         isOpen={isChatOpen}
         onClose={toggleChat}
         messages={messages}
+        onSendMessage={sendTextMessage}
+        isThinking={isThinking}
       />
     </div>
   );

@@ -1,5 +1,7 @@
 import React from 'react';
 import { IoMedicalOutline } from 'react-icons/io5';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 const formatTime = (date) => {
   if (!date) return '';
@@ -25,7 +27,13 @@ const MessageBubble = ({ role, text, timestamp }) => {
                 : 'rounded-br-md border border-emerald-500/30 bg-gradient-to-r from-emerald-500 to-emerald-600 text-white'
             }`}
           >
-            <p className="whitespace-pre-wrap text-sm leading-6 sm:text-[15px]">{text}</p>
+            {isDoctor ? (
+              <div className="prose prose-invert prose-sm max-w-none [&_ul]:list-disc [&_ul]:pl-4 [&_ol]:list-decimal [&_ol]:pl-4 [&_li]:my-0.5 [&_h1]:text-base [&_h1]:font-bold [&_h2]:text-base [&_h2]:font-bold [&_h3]:text-sm [&_h3]:font-semibold [&_p]:my-1 [&_p]:leading-6 [&_code]:rounded [&_code]:bg-white/10 [&_code]:px-1 [&_code]:py-0.5 [&_code]:text-xs">
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>{text}</ReactMarkdown>
+              </div>
+            ) : (
+              <p className="whitespace-pre-wrap text-sm leading-6 sm:text-[15px]">{text}</p>
+            )}
           </div>
           {timestamp && (
             <p className={`mt-1 text-[10px] text-slate-500 ${isDoctor ? 'text-left' : 'text-right'}`}>

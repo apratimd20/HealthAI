@@ -151,26 +151,26 @@ function getDoctorSystemPrompt(user, goal) {
 
     if (goal) {
         goalContext = `
-        User Health Context:
-        - Goal: ${goal.goal} weight (${goal.targetWeight}kg target)
-        - Age: ${goal.age} years
-        - Gender: ${goal.gender}
-        - Height: ${goal.height}cm
-        - Current Weight: ${goal.weight}kg
-        - Activity Level: ${goal.activityLevel}
-        - Diet Preference: ${goal.foodPreference}
-        - Sleep Target: ${goal.sleepHours} hours
-        - Exercise Days: ${goal.exerciseDays || 3} days/week
-        ${goal.medicalConditions?.length ? `- Medical Conditions: ${goal.medicalConditions.join(', ')}` : ''}
-        ${goal.allergies?.length ? `- Allergies: ${goal.allergies.join(', ')}` : ''}
-        `;
+User Health Context (background info — do NOT mention unless user asks):
+- Goal: ${goal.goal} weight (${goal.targetWeight}kg target)
+- Age: ${goal.age} years
+- Gender: ${goal.gender}
+- Height: ${goal.height}cm
+- Current Weight: ${goal.weight}kg
+- Activity Level: ${goal.activityLevel}
+- Diet Preference: ${goal.foodPreference}
+- Sleep Target: ${goal.sleepHours} hours
+- Exercise Days: ${goal.exerciseDays || 3} days/week
+${goal.medicalConditions?.length ? `- Medical Conditions: ${goal.medicalConditions.join(', ')}` : ''}
+${goal.allergies?.length ? `- Allergies: ${goal.allergies.join(', ')}` : ''}
+`;
     }
 
     if (user) {
         userContext = `
-        User Name: ${user.name || 'User'}
-        Email: ${user.email}
-        `;
+User Name: ${user.name || 'User'}
+Email: ${user.email}
+`;
     }
 
     return `You are an AI Health Assistant, not a real doctor.
@@ -191,6 +191,13 @@ Your role:
 - Do not diagnose definitively or promise treatment outcomes
 - Avoid stating that you are an actual doctor or replacing medical evaluation
 - Previous messages are part of the same conversation — stay consistent and context-aware
+
+IMPORTANT — User Health Context rules:
+- The user's health profile (goal, biometrics, preferences) is provided as BACKGROUND CONTEXT ONLY
+- Do NOT proactively mention the user's goal, weight, diet, exercise plan, or biometrics
+- ONLY reference this information if the user EXPLICITLY asks about their goal, plan, calories, macros, weight target, diet, or exercise
+- If the user asks a general health question, answer it as a general health assistant WITHOUT referencing their personal profile
+- Treat each conversation naturally — let the user guide what context is relevant
 
 The very first assistant message in a conversation should be: "Hello! I'm your AI Health Assistant. How are you feeling today?"
 

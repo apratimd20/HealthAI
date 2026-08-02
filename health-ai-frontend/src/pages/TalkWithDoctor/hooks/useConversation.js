@@ -10,12 +10,13 @@ const INITIAL_MESSAGE = {
 };
 
 /**
- * Orchestrates the entire voice-first doctor conversation:
+ * Orchestrates the full AI Doctor conversation in BOTH modes:
  *
- *   user speaks → speech recognition → Groq/OpenAI backend → response → TTS → resume listening
+ *   Voice:  user speaks → speech recognition → backend → response → TTS → resume listening
+ *   Text:   user types  → backend (same endpoint) → response shown & optionally spoken
  *
- * Exposes the conversation state (messages, status, controls) to the page so the
- * UI stays purely presentational.
+ * Both input modes share the same message history so the doctor stays
+ * context-aware across the entire consultation.
  */
 export const useConversation = () => {
   const [messages, setMessages] = useState([INITIAL_MESSAGE]);
@@ -34,6 +35,7 @@ export const useConversation = () => {
   const messagesRef = useRef(messages);
   const resumeListeningRef = useRef(null);
   const handleFinalResultRef = useRef(null);
+  const handleUserMessageRef = useRef(null);
 
   useEffect(() => {
     messagesRef.current = messages;
@@ -45,7 +47,10 @@ export const useConversation = () => {
 
   const addMessage = useCallback((role, text) => {
     const id = `${role}-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
-    setMessages((prev) => [...prev, { id, role, text }]);
+    setMessages((prev) => [
+      ...prev,
+      { id, role, text, timestamp: new Date().toISOString() },
+    ]);
   }, []);
 
   // ------------------------------------------------------------------
@@ -68,10 +73,8 @@ export const useConversation = () => {
   }, [isSpeaking]);
 
   // ------------------------------------------------------------------
-  // Speech recognition (user's voice)
+  // Speech recognition (user's voice) — FIRST so sttSupported is available
   // ------------------------------------------------------------------
-  // `handleFinalResultRef` indirection avoids a temporal-dead-zone reference
-  // between the recognition hook and the handler that uses `stopListening`.
   const {
     isListening,
     isSupported: sttSupported,
@@ -80,23 +83,26 @@ export const useConversation = () => {
   } = useSpeechRecognition({
     enabled: true,
     onFinalResult: (transcript) => handleFinalResultRef.current?.(transcript),
-    onInterimResult: () => {
-      // Used by the UI to show live transcription in future; not needed now.
-    },
+    onInterimResult: () => {},
     onError: (message) => {
       setRecognitionError(message);
       setStatus('idle');
     },
   });
 
-  const handleFinalResult = useCallback(
-    async (transcript) => {
-      // Guards: no processing if call ended, mic muted, or already processing.
-      if (isEndedRef.current || isMicMutedRef.current || isProcessingRef.current) return;
+  // ------------------------------------------------------------------
+  // Shared message pipeline (voice + text)
+  // ------------------------------------------------------------------
+  const handleUserMessage = useCallback(
+    async (input, { isVoice = false } = {}) => {
+      if (isEndedRef.current) return;
+      if (isProcessingRef.current) return;
+      if (isVoice && isMicMutedRef.current) return;
 
-      const normalized = transcript.replace(/\s+/g, ' ').trim();
+      const normalized = input.replace(/\s+/g, ' ').trim();
       if (!normalized) return;
 
+      setIsConversationStarted(true);
       isProcessingRef.current = true;
       stopListening();
       setStatus('thinking');
@@ -116,7 +122,7 @@ export const useConversation = () => {
 
         addMessage('assistant', aiReply);
 
-        if (ttsSupported) {
+        if (ttsSupported && !isMicMutedRef.current) {
           setStatus('speaking');
           speak(aiReply);
         } else {
@@ -131,6 +137,15 @@ export const useConversation = () => {
       }
     },
     [addMessage, speak, stopListening, ttsSupported]
+  );
+
+  handleUserMessageRef.current = handleUserMessage;
+
+  const handleFinalResult = useCallback(
+    (transcript) => {
+      handleUserMessageRef.current?.(transcript, { isVoice: true });
+    },
+    []
   );
 
   handleFinalResultRef.current = handleFinalResult;
@@ -179,7 +194,15 @@ export const useConversation = () => {
     }
   }, [isConversationStarted, sttSupported, ttsSupported, speak, startListening]);
 
-  const toggleMic = useCallback(() => {
+  const sendTextMessage = useCallback(
+    (text) => {
+      if (isEndedRef.current || isProcessingRef.current) return;
+      handleUserMessageRef.current?.(text, { isVoice: false });
+    },
+    []
+  );
+
+  const toggleMic = useCallback(async () => {
     if (isEndedRef.current) return;
 
     if (isMicMutedRef.current) {
@@ -225,10 +248,12 @@ export const useConversation = () => {
     isChatOpen,
     isListening,
     isSpeaking,
+    isThinking: status === 'thinking',
     sttSupported,
     ttsSupported,
     recognitionError,
     startConversation,
+    sendTextMessage,
     toggleMic,
     toggleChat,
     endCall,
