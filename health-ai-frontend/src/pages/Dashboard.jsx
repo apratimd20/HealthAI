@@ -16,6 +16,7 @@ import NotificationOverlay from '../components/ui/NotificationOverlay';
 import ScannerModal from '../components/ScannerModal';
 import ChatWidget from '../components/ChatWidget';
 import { motion } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
 import { staggerContainer, staggerItem } from '../animations/variants';
 import {
   IoFlameOutline,
@@ -31,11 +32,13 @@ import {
   IoLockClosedOutline,
   IoArrowForward,
   IoFitnessOutline,
+  IoMedicalOutline,
 } from 'react-icons/io5';
 import toast from 'react-hot-toast';
 import { notificationService } from '../services/notificationService';
 
 export default function Dashboard() {
+  const navigate = useNavigate();
   const { updateGoalStatus } = useAuth();
   const [loading, setLoading] = useState(true);
   const [plan, setPlan] = useState(null);
@@ -178,6 +181,14 @@ export default function Dashboard() {
       description: 'Ask questions about calories, food swaps, and wellness tips.',
       icon: <IoChatbubbleEllipsesOutline size={28} className="text-brand" />,
       action: () => setIsChatOpen(true),
+      disabled: false,
+    },
+    {
+      id: 'ai-doctor',
+      title: 'Talk with AI Doctor',
+      description: 'Have a natural voice conversation with an AI health assistant.',
+      icon: <IoMedicalOutline size={28} className="text-emerald-300" />,
+      action: () => navigate('/doctor'),
       disabled: false,
     },
     {
@@ -533,6 +544,23 @@ export default function Dashboard() {
                 </p>
                 <Button size="sm" onClick={() => setIsChatOpen(true)}>
                   Start Chat
+                </Button>
+              </Card>
+
+              <Card
+                className="group flex flex-col items-start gap-3 cursor-pointer transition-all hover:border-emerald-400/40 hover:shadow-[0_0_20px_rgba(16,185,129,0.08)]"
+                glow
+                onClick={() => navigate('/doctor')}
+              >
+                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-500/15 text-emerald-300 transition-all group-hover:scale-105">
+                  <IoMedicalOutline size={24} />
+                </div>
+                <h3 className="text-lg font-bold text-fg">Talk with AI Doctor</h3>
+                <p className="text-sm leading-relaxed text-fg-muted">
+                  Have a natural voice conversation with an AI health assistant.
+                </p>
+                <Button size="sm" variant="secondary" onClick={() => navigate('/doctor')}>
+                  Open Doctor
                 </Button>
               </Card>
 
