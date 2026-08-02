@@ -57,6 +57,7 @@ export const useConversation = () => {
   // Speech synthesis (doctor's voice)
   // ------------------------------------------------------------------
   const handleSpeechEnd = useCallback(() => {
+    console.log('[CONV] handleSpeechEnd → resumeListening');
     isSpeakingRef.current = false;
     resumeListeningRef.current?.();
   }, []);
@@ -82,9 +83,13 @@ export const useConversation = () => {
     stopListening,
   } = useSpeechRecognition({
     enabled: true,
-    onFinalResult: (transcript) => handleFinalResultRef.current?.(transcript),
+    onFinalResult: (transcript) => {
+      console.log('[CONV] onFinalResult:', transcript);
+      handleFinalResultRef.current?.(transcript);
+    },
     onInterimResult: () => {},
     onError: (message) => {
+      console.log('[CONV] STT error:', message);
       setRecognitionError(message);
       setStatus('idle');
     },
@@ -95,6 +100,7 @@ export const useConversation = () => {
   // ------------------------------------------------------------------
   const handleUserMessage = useCallback(
     async (input, { isVoice = false } = {}) => {
+      console.log('[CONV] handleUserMessage', { input, isVoice });
       if (isEndedRef.current) return;
       if (isProcessingRef.current) return;
       if (isVoice && isMicMutedRef.current) return;
@@ -120,6 +126,7 @@ export const useConversation = () => {
           result?.message ||
           'I am here to help. Tell me more about what you are experiencing.';
 
+        console.log('[CONV] AI reply:', aiReply);
         addMessage('assistant', aiReply);
 
         if (ttsSupported && !isMicMutedRef.current) {
@@ -132,6 +139,7 @@ export const useConversation = () => {
         const message =
           error?.response?.data?.message ||
           'I could not reach the doctor right now. Please try again.';
+        console.log('[CONV] API error:', error?.message);
         addMessage('assistant', message);
         resumeListeningRef.current?.();
       }
@@ -151,7 +159,8 @@ export const useConversation = () => {
   handleFinalResultRef.current = handleFinalResult;
 
   // Resume listening after the AI finishes speaking (unless muted/ended).
-  const resumeListening = useCallback(() => {
+  const resumeListening = useCallback(async () => {
+    console.log('[CONV] resumeListening');
     if (isEndedRef.current) return;
     isProcessingRef.current = false;
 
@@ -161,8 +170,10 @@ export const useConversation = () => {
     }
 
     if (sttSupported) {
-      startListening();
-      setStatus('listening');
+      const started = await startListening();
+      console.log('[CONV] resumeListening started:', started);
+      if (started) setStatus('listening');
+      else setStatus('idle');
     } else {
       setStatus('idle');
     }
@@ -174,6 +185,7 @@ export const useConversation = () => {
   // Public actions
   // ------------------------------------------------------------------
   const startConversation = useCallback(async () => {
+    console.log('[CONV] startConversation');
     if (isConversationStarted) return;
     setIsConversationStarted(true);
 
@@ -189,13 +201,16 @@ export const useConversation = () => {
       setStatus('speaking');
       speak(INITIAL_MESSAGE.text);
     } else {
-      setStatus('listening');
-      await startListening();
+      const started = await startListening();
+      console.log('[CONV] startConversation direct startListening:', started);
+      if (started) setStatus('listening');
+      else setStatus('idle');
     }
   }, [isConversationStarted, sttSupported, ttsSupported, speak, startListening]);
 
   const sendTextMessage = useCallback(
     (text) => {
+      console.log('[CONV] sendTextMessage:', text);
       if (isEndedRef.current || isProcessingRef.current) return;
       handleUserMessageRef.current?.(text, { isVoice: false });
     },
@@ -203,6 +218,7 @@ export const useConversation = () => {
   );
 
   const toggleMic = useCallback(async () => {
+    console.log('[CONV] toggleMic, isMicMuted:', isMicMuted);
     if (isEndedRef.current) return;
 
     if (isMicMutedRef.current) {
@@ -211,8 +227,10 @@ export const useConversation = () => {
       if (isSpeakingRef.current) {
         setStatus('speaking');
       } else {
-        setStatus('listening');
-        startListening();
+        const started = await startListening();
+        console.log('[CONV] unmute startListening:', started);
+        if (started) setStatus('listening');
+        else setStatus('idle');
       }
     } else {
       // Mute
@@ -228,6 +246,7 @@ export const useConversation = () => {
   }, []);
 
   const endCall = useCallback(() => {
+    console.log('[CONV] endCall');
     isEndedRef.current = true;
     isProcessingRef.current = false;
     greetingSpokenRef.current = false;

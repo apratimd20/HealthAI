@@ -10,17 +10,6 @@ const ERROR_MESSAGES = {
   'not-supported': 'Speech recognition is not supported in this browser.',
 };
 
-/**
- * Robust speech recognition hook for voice-first conversations.
- *
- * Key fixes over the previous implementation:
- * - Continuous mode with automatic restart when recognition ends (unless explicitly stopped).
- * - Fires `onFinalResult` only for committed (final) transcripts to prevent duplicate API calls.
- * - Fires `onInterimResult` for live (partial) transcripts for a "listening" UX.
- * - Ignores empty results and results produced while the mic is muted.
- * - Requests microphone permission up front and surfaces a friendly error if denied.
- * - Proper start/stop/cleanup without leaking the recognition instance.
- */
 export const useSpeechRecognition = ({
   enabled = true,
   lang = 'en-US',
@@ -40,6 +29,8 @@ export const useSpeechRecognition = ({
   const shouldRestartRef = useRef(false);
   const restartTimerRef = useRef(null);
   const isActiveRef = useRef(false);
+  const startResolveRef = useRef(null);
+  const noSpeechCountRef = useRef(0);
 
   // Keep the latest callbacks in refs so the recognition handlers never go stale.
   const onFinalResultRef = useRef(onFinalResult);
@@ -63,19 +54,25 @@ export const useSpeechRecognition = ({
     recognition.maxAlternatives = 1;
 
     recognition.onstart = () => {
+      console.log('[STT] onstart — recognition active');
       isActiveRef.current = true;
       setIsListening(true);
+      if (startResolveRef.current) {
+        startResolveRef.current(true);
+        startResolveRef.current = null;
+      }
     };
 
     recognition.onresult = (event) => {
+      console.log('[STT] onresult', { resultIndex: event.resultIndex, resultsLength: event.results.length });
+      noSpeechCountRef.current = 0; // got audio, reset counter
       let finalTranscript = '';
       let interimTranscript = '';
 
-      // Iterate from resultIndex so already-processed final segments are not re-read,
-      // which prevents duplicate transcripts and duplicate API calls.
       for (let i = event.resultIndex; i < event.results.length; i += 1) {
         const result = event.results[i];
         const text = result[0]?.transcript?.trim() || '';
+        console.log('[STT] result', i, { isFinal: result.isFinal, transcript: text });
         if (result.isFinal) {
           finalTranscript += `${text} `;
         } else {
@@ -84,39 +81,64 @@ export const useSpeechRecognition = ({
       }
 
       const cleanFinal = finalTranscript.replace(/\s+/g, ' ').trim();
-      if (cleanFinal) onFinalResultRef.current?.(cleanFinal);
+      if (cleanFinal) {
+        console.log('[STT] final transcript:', cleanFinal);
+        onFinalResultRef.current?.(cleanFinal);
+      }
 
       const cleanInterim = interimTranscript.replace(/\s+/g, ' ').trim();
-      if (cleanInterim) onInterimResultRef.current?.(cleanInterim);
+      if (cleanInterim) {
+        console.log('[STT] interim:', cleanInterim);
+        onInterimResultRef.current?.(cleanInterim);
+      }
     };
 
     recognition.onerror = (event) => {
       const code = event?.error;
+      console.log('[STT] onerror:', code);
 
-      // Expected / transient events — let onend drive auto-restart.
-      if (code === 'no-speech' || code === 'aborted') return;
-      // Chrome occasionally fires transient `network` errors; restart silently.
+      if (code === 'aborted') return;
       if (code === 'network') return;
+
+      if (code === 'no-speech') {
+        noSpeechCountRef.current += 1;
+        console.log('[STT] no-speech count:', noSpeechCountRef.current);
+
+        // After 3 consecutive no-speech errors, stop restarting and surface error
+        if (noSpeechCountRef.current >= 3) {
+          console.log('[STT] too many no-speech errors — stopping');
+          shouldRestartRef.current = false;
+          isActiveRef.current = false;
+          setIsListening(false);
+          onErrorRef.current?.('Microphone is not detecting any sound. Check that your microphone is not muted, the correct input device is selected, and try speaking closer to the mic.');
+        }
+        return;
+      }
 
       // Hard errors: stop auto-restart and surface a friendly message.
       shouldRestartRef.current = false;
       isActiveRef.current = false;
       setIsListening(false);
+      if (startResolveRef.current) {
+        startResolveRef.current(false);
+        startResolveRef.current = null;
+      }
       onErrorRef.current?.(ERROR_MESSAGES[code] || 'Speech recognition encountered an error. Please try again.');
     };
 
     recognition.onend = () => {
+      console.log('[STT] onend, shouldRestart:', shouldRestartRef.current, 'noSpeechCount:', noSpeechCountRef.current);
       isActiveRef.current = false;
       setIsListening(false);
 
-      // Auto-restart so the conversation never drops after silence.
-      if (shouldRestartRef.current) {
+      if (shouldRestartRef.current && noSpeechCountRef.current < 3) {
         restartTimerRef.current = setTimeout(() => {
-          if (shouldRestartRef.current) {
+          if (shouldRestartRef.current && noSpeechCountRef.current < 3) {
             try {
+              console.log('[STT] auto-restart');
               recognition.start();
             } catch {
-              /* already started — ignore */
+              console.log('[STT] auto-restart failed (already started)');
             }
           }
         }, 250);
@@ -139,6 +161,10 @@ export const useSpeechRecognition = ({
         clearTimeout(restartTimerRef.current);
         restartTimerRef.current = null;
       }
+      if (startResolveRef.current) {
+        startResolveRef.current(false);
+        startResolveRef.current = null;
+      }
       if (recognitionRef.current) {
         try {
           recognitionRef.current.abort();
@@ -151,6 +177,7 @@ export const useSpeechRecognition = ({
   }, [enabled, isSupported, createRecognition]);
 
   const startListening = useCallback(async () => {
+    console.log('[STT] startListening called, recognitionRef:', !!recognitionRef.current, 'isActive:', isActiveRef.current);
     if (!recognitionRef.current) return false;
     if (isActiveRef.current) return true;
 
@@ -163,6 +190,7 @@ export const useSpeechRecognition = ({
         stream.getTracks().forEach((track) => track.stop());
       }
     } catch (error) {
+      console.log('[STT] getUserMedia error:', error?.message);
       onErrorRef.current?.(
         error?.message || 'Microphone permission is required to use voice input.'
       );
@@ -170,18 +198,34 @@ export const useSpeechRecognition = ({
     }
 
     shouldRestartRef.current = true;
+    noSpeechCountRef.current = 0;
 
     try {
+      console.log('[STT] calling recognition.start()');
       recognitionRef.current.start();
-      return true;
     } catch (error) {
       // InvalidStateError happens if it already started — treat as success.
-      console.warn('Speech recognition start warning:', error?.message);
+      console.warn('[STT] recognition.start warning:', error?.message);
       return true;
     }
+
+    // Wait for onstart to actually fire (max 3s). If it doesn't, the mic
+    // never truly opened — surface a clear error instead of pretending success.
+    return await new Promise((resolve) => {
+      startResolveRef.current = resolve;
+      setTimeout(() => {
+        if (startResolveRef.current) {
+          console.log('[STT] start timeout — onstart never fired');
+          startResolveRef.current = null;
+          onErrorRef.current?.('Microphone did not start. Please check permissions and try again.');
+          resolve(false);
+        }
+      }, 3000);
+    });
   }, []);
 
   const stopListening = useCallback(() => {
+    console.log('[STT] stopListening');
     shouldRestartRef.current = false;
     if (restartTimerRef.current) {
       clearTimeout(restartTimerRef.current);
