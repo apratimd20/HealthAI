@@ -1,8 +1,9 @@
-import React, { useEffect, useCallback } from 'react';
+import React, { useEffect, useCallback, useState } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { useConversation } from './hooks/useConversation';
+import { useMicTest } from './hooks/useMicTest';
 import DoctorHeader from './components/DoctorHeader';
 import DoctorAvatar from './components/DoctorAvatar';
 import ConversationStatus from './components/ConversationStatus';
@@ -16,6 +17,7 @@ import Button from '../../components/ui/Button';
  */
 const TalkWithDoctorPage = () => {
   const navigate = useNavigate();
+  const [showMicTest, setShowMicTest] = useState(false);
 
   const {
     messages,
@@ -35,6 +37,8 @@ const TalkWithDoctorPage = () => {
     endCall,
   } = useConversation();
 
+  const { isTesting, audioLevel, error: micTestError, startTest, stopTest } = useMicTest();
+
   useEffect(() => {
     if (recognitionError) {
       toast.error(recognitionError);
@@ -45,6 +49,69 @@ const TalkWithDoctorPage = () => {
     endCall();
     navigate('/dashboard');
   }, [endCall, navigate]);
+
+  // Render mic test panel
+  const renderMicTest = () => {
+    if (isConversationStarted) return null;
+
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.3, duration: 0.3 }}
+        className="absolute bottom-0 left-1/2 -translate-x-1/2 z-20 mb-20 w-full max-w-md px-4"
+      >
+        <div className="bg-slate-900/80 backdrop-blur-xl rounded-2xl border border-slate-700/50 p-6 shadow-xl">
+          <h3 className="text-center text-lg font-semibold text-slate-100 mb-4">Microphone Test</h3>
+          <p className="text-center text-sm text-slate-400 mb-4">
+            Verify your microphone is working before starting the call
+          </p>
+
+          {isTesting ? (
+            <div className="space-y-4">
+              <div className="text-center">
+                <div className="text-4xl font-bold text-emerald-400 mb-2">{audioLevel}</div>
+                <div className="text-sm text-slate-400">Input Level</div>
+              </div>
+              <div className="h-4 bg-slate-800 rounded-full overflow-hidden">
+                <motion.div
+                  className="h-full bg-gradient-to-r from-emerald-400 to-emerald-600 rounded-full"
+                  animate={{ width: `${audioLevel}%` }}
+                  transition={{ duration: 0.1, ease: 'easeOut' }}
+                />
+              </div>
+              <p className="text-center text-xs text-slate-500">
+                Speak into your microphone — the bar should move
+              </p>
+              <Button onClick={stopTest} variant="secondary" className="w-full">
+                Stop Test
+              </Button>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <Button onClick={startTest} size="lg" className="w-full" disabled={!sttSupported}>
+                <svg className="h-5 w-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+                </svg>
+                Test Microphone
+              </Button>
+              {!sttSupported && (
+                <p className="text-center text-xs text-red-400">
+                  Speech recognition not supported in this browser
+                </p>
+              )}
+            </div>
+          )}
+
+          {micTestError && (
+            <div className="text-center text-sm text-red-400 bg-red-900/20 border border-red-500/30 rounded-lg p-3">
+              Error: {micTestError}
+            </div>
+          )}
+        </div>
+      </motion.div>
+    );
+  };
 
   return (
     <div className="relative flex h-dvh flex-col overflow-hidden bg-slate-950 pb-[env(safe-area-inset-bottom)]">
@@ -89,6 +156,12 @@ const TalkWithDoctorPage = () => {
               </Button>
             </motion.div>
           )}
+
+          <div>
+           {/* Mic Test Panel */}
+          {/* {renderMicTest()} */}
+
+          </div>
 
           {/* Voice/listening status + equalizer — only when active */}
           {isConversationStarted && (

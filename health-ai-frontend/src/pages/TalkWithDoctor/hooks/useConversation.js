@@ -1,281 +1,305 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { doctorApi } from '../services/doctorApi';
-import { useSpeechRecognition } from './useSpeechRecognition';
+import { useSpeechRecognition, STT_STATE } from './useSpeechRecognition';
 import { useSpeechSynthesis } from './useSpeechSynthesis';
+
+// ==========================================
+// Conversation State Machine
+// ==========================================
+const CONV_STATE = {
+  IDLE: 'idle',
+  STARTING: 'starting',
+  AI_GREETING: 'ai-greeting',
+  LISTENING: 'listening',
+  USER_SPEAKING: 'user-speaking',
+  THINKING: 'thinking',
+  AI_SPEAKING: 'ai-speaking',
+  MUTED: 'muted',
+  ENDED: 'ended',
+  ERROR: 'error',
+};
 
 const INITIAL_MESSAGE = {
   id: 'doctor-welcome',
   role: 'assistant',
   text: "Hello! I'm your AI Health Assistant. How are you feeling today?",
+  timestamp: new Date().toISOString(),
 };
 
-/**
- * Orchestrates the full AI Doctor conversation in BOTH modes:
- *
- *   Voice:  user speaks → speech recognition → backend → response → TTS → resume listening
- *   Text:   user types  → backend (same endpoint) → response shown & optionally spoken
- *
- * Both input modes share the same message history so the doctor stays
- * context-aware across the entire consultation.
- */
+function log(...args) {
+  console.log('[Conv]', new Date().toISOString(), ...args);
+}
+
+function logError(...args) {
+  console.error('[Conv]', new Date().toISOString(), ...args);
+}
+
 export const useConversation = () => {
+  // ==========================================
+  // State
+  // ==========================================
   const [messages, setMessages] = useState([INITIAL_MESSAGE]);
-  const [status, setStatus] = useState('idle'); // idle | listening | thinking | speaking | muted | ended
-  const [isConversationStarted, setIsConversationStarted] = useState(false);
+  const [state, setState] = useState(CONV_STATE.IDLE);
   const [isMicMuted, setIsMicMuted] = useState(false);
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [recognitionError, setRecognitionError] = useState(null);
 
-  // Refs to read fresh values inside async callbacks.
+// Refs for mutable state
+  const stateRef = useRef(CONV_STATE.IDLE);
   const isEndedRef = useRef(false);
-  const isMicMutedRef = useRef(false);
   const isProcessingRef = useRef(false);
-  const isSpeakingRef = useRef(false);
-  const greetingSpokenRef = useRef(false);
+  const greetingPlayedRef = useRef(false);
   const messagesRef = useRef(messages);
-  const resumeListeningRef = useRef(null);
-  const handleFinalResultRef = useRef(null);
-  const handleUserMessageRef = useRef(null);
 
+  // Keep messages ref fresh
   useEffect(() => {
     messagesRef.current = messages;
   }, [messages]);
 
-  useEffect(() => {
-    isMicMutedRef.current = isMicMuted;
-  }, [isMicMuted]);
-
-  const addMessage = useCallback((role, text) => {
-    const id = `${role}-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
-    setMessages((prev) => [
-      ...prev,
-      { id, role, text, timestamp: new Date().toISOString() },
-    ]);
+  const setStateSafe = useCallback((newState) => {
+    if (stateRef.current === newState) return;
+    log('State transition:', stateRef.current, '→', newState);
+    stateRef.current = newState;
+    setState(newState);
   }, []);
 
-  // ------------------------------------------------------------------
-  // Speech synthesis (doctor's voice)
-  // ------------------------------------------------------------------
-  const handleSpeechEnd = useCallback(() => {
-    console.log('[CONV] handleSpeechEnd → resumeListening');
-    isSpeakingRef.current = false;
-    resumeListeningRef.current?.();
+  // ==========================================
+  // Speech Recognition (STT) — FIRST so resumeListening is available
+  // ==========================================
+  const handleFinalResult = useCallback((transcript) => {
+    log('Final transcript received:', transcript);
+    if (!isEndedRef.current && !isProcessingRef.current) {
+      processUserMessage(transcript, true);
+    }
   }, []);
+
+  const handleRecognitionError = useCallback((message) => {
+    logError('Recognition error:', message);
+    setRecognitionError(message);
+    if (stateRef.current !== CONV_STATE.ENDED) {
+      setStateSafe(CONV_STATE.ERROR);
+    }
+  }, [setStateSafe]);
+
+  const handleSttStateChange = useCallback((sttState) => {
+    log('STT state change:', sttState);
+    if (sttState === STT_STATE.USER_SPEAKING && stateRef.current === CONV_STATE.LISTENING) {
+      setStateSafe(CONV_STATE.USER_SPEAKING);
+    } else if (sttState === STT_STATE.LISTENING && stateRef.current === CONV_STATE.USER_SPEAKING) {
+      setStateSafe(CONV_STATE.LISTENING);
+    } else if (sttState === STT_STATE.ERROR) {
+      setStateSafe(CONV_STATE.ERROR);
+    }
+    // NOTE: Ignore STT IDLE during active conversation — those are brief auto-restarts
+    // after no-speech. Conversation stays in LISTENING/USER_SPEAKING visually.
+  }, [setStateSafe]);
 
   const {
-    isSpeaking,
+    state: sttState,
+    isSupported: sttSupported,
+    permissionState,
+    start: startListening,
+    stop: stopListening,
+    pause: pauseListening,
+    resume: resumeListening,
+    end: endListening,
+    clearError: clearSttError,
+  } = useSpeechRecognition({
+    enabled: true,
+    onFinalResult: handleFinalResult,
+    onInterimResult: () => {},
+    onError: handleRecognitionError,
+    onStateChange: handleSttStateChange,
+  });
+
+  // ==========================================
+  // Speech Synthesis (TTS) — SECOND, uses resumeListening from STT
+  // ==========================================
+  const handleSpeechEnd = useCallback(() => {
+    log('TTS finished → resuming recognition');
+    if (!isEndedRef.current && !isMicMuted) {
+      setStateSafe(CONV_STATE.LISTENING);
+      resumeListening();
+    }
+  }, [isEndedRef, isMicMuted, setStateSafe, resumeListening]);
+
+  const {
+    isSpeaking: isTtsSpeaking,
     speak,
     stop: stopSpeaking,
     isSupported: ttsSupported,
   } = useSpeechSynthesis({ onEnd: handleSpeechEnd });
 
-  useEffect(() => {
-    isSpeakingRef.current = isSpeaking;
-  }, [isSpeaking]);
+  // ==========================================
+  // Shared Message Pipeline (Voice + Text)
+  // ==========================================
+  const addMessage = useCallback((role, text) => {
+    const id = `${role}-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
+    const message = { id, role, text, timestamp: new Date().toISOString() };
+    setMessages((prev) => [...prev, message]);
+    return message;
+  }, []);
 
-  // ------------------------------------------------------------------
-  // Speech recognition (user's voice) — FIRST so sttSupported is available
-  // ------------------------------------------------------------------
-  const {
-    isListening,
-    isSupported: sttSupported,
-    startListening,
-    stopListening,
-  } = useSpeechRecognition({
-    enabled: true,
-    onFinalResult: (transcript) => {
-      console.log('[CONV] onFinalResult:', transcript);
-      handleFinalResultRef.current?.(transcript);
-    },
-    onInterimResult: () => {},
-    onError: (message) => {
-      console.log('[CONV] STT error:', message);
-      setRecognitionError(message);
-      setStatus('idle');
-    },
-  });
-
-  // ------------------------------------------------------------------
-  // Shared message pipeline (voice + text)
-  // ------------------------------------------------------------------
-  const handleUserMessage = useCallback(
-    async (input, { isVoice = false } = {}) => {
-      console.log('[CONV] handleUserMessage', { input, isVoice });
-      if (isEndedRef.current) return;
-      if (isProcessingRef.current) return;
-      if (isVoice && isMicMutedRef.current) return;
-
-      const normalized = input.replace(/\s+/g, ' ').trim();
-      if (!normalized) return;
-
-      setIsConversationStarted(true);
-      isProcessingRef.current = true;
-      stopListening();
-      setStatus('thinking');
-      addMessage('user', normalized);
-
-      try {
-        const history = messagesRef.current
-          .filter((m) => m.text)
-          .slice(-10)
-          .map((m) => ({ role: m.role, content: m.text }));
-
-        const result = await doctorApi.sendDoctorMessage(normalized, history);
-        const aiReply =
-          result?.data?.message ||
-          result?.message ||
-          'I am here to help. Tell me more about what you are experiencing.';
-
-        console.log('[CONV] AI reply:', aiReply);
-        addMessage('assistant', aiReply);
-
-        if (ttsSupported && !isMicMutedRef.current) {
-          setStatus('speaking');
-          speak(aiReply);
-        } else {
-          resumeListeningRef.current?.();
-        }
-      } catch (error) {
-        const message =
-          error?.response?.data?.message ||
-          'I could not reach the doctor right now. Please try again.';
-        console.log('[CONV] API error:', error?.message);
-        addMessage('assistant', message);
-        resumeListeningRef.current?.();
-      }
-    },
-    [addMessage, speak, stopListening, ttsSupported]
-  );
-
-  handleUserMessageRef.current = handleUserMessage;
-
-  const handleFinalResult = useCallback(
-    (transcript) => {
-      handleUserMessageRef.current?.(transcript, { isVoice: true });
-    },
-    []
-  );
-
-  handleFinalResultRef.current = handleFinalResult;
-
-  // Resume listening after the AI finishes speaking (unless muted/ended).
-  const resumeListening = useCallback(async () => {
-    console.log('[CONV] resumeListening');
+  const processUserMessage = useCallback(async (input, isVoice) => {
     if (isEndedRef.current) return;
-    isProcessingRef.current = false;
+    if (isProcessingRef.current) return;
+    if (isVoice && isMicMuted) return;
 
-    if (isMicMutedRef.current) {
-      setStatus('muted');
-      return;
+    const normalized = input.replace(/\s+/g, ' ').trim();
+    if (!normalized) return;
+
+    log('Processing user message:', { input: normalized, isVoice });
+
+    isProcessingRef.current = true;
+    setStateSafe(CONV_STATE.THINKING);
+    addMessage('user', normalized);
+
+    try {
+      const history = messagesRef.current
+        .filter((m) => m.text)
+        .slice(-10)
+        .map((m) => ({ role: m.role, content: m.text }));
+
+      const result = await doctorApi.sendDoctorMessage(normalized, history);
+      const aiReply =
+        result?.data?.message ||
+        result?.message ||
+        'I am here to help. Tell me more about what you are experiencing.';
+
+      log('AI reply:', aiReply);
+      addMessage('assistant', aiReply);
+
+      if (ttsSupported && !isMicMuted) {
+        pauseListening();
+        setStateSafe(CONV_STATE.AI_SPEAKING);
+        speak(aiReply);
+      } else {
+        setStateSafe(CONV_STATE.LISTENING);
+      }
+    } catch (error) {
+      logError('API error:', error?.message);
+      const message =
+        error?.response?.data?.message ||
+        'I could not reach the doctor right now. Please try again.';
+      addMessage('assistant', message);
+      if (!isEndedRef.current) {
+        setStateSafe(CONV_STATE.LISTENING);
+      }
+    } finally {
+      isProcessingRef.current = false;
     }
+  }, [isMicMuted, pauseListening, ttsSupported, speak, addMessage, setStateSafe]);
 
-    if (sttSupported) {
-      const started = await startListening();
-      console.log('[CONV] resumeListening started:', started);
-      if (started) setStatus('listening');
-      else setStatus('idle');
-    } else {
-      setStatus('idle');
-    }
-  }, [sttSupported, startListening]);
+  // ==========================================
+  // Public Actions
+  // ==========================================
 
-  resumeListeningRef.current = resumeListening;
-
-  // ------------------------------------------------------------------
-  // Public actions
-  // ------------------------------------------------------------------
   const startConversation = useCallback(async () => {
-    console.log('[CONV] startConversation');
-    if (isConversationStarted) return;
-    setIsConversationStarted(true);
+    log('startConversation');
+    if (stateRef.current !== CONV_STATE.IDLE && stateRef.current !== CONV_STATE.ENDED) return;
+
+    isEndedRef.current = false;
+    isProcessingRef.current = false;
+    greetingPlayedRef.current = false;
+    setIsMicMuted(false);
+    setIsChatOpen(false);
+    setRecognitionError(null);
+    clearSttError();
 
     if (!sttSupported) {
       setRecognitionError('Speech recognition is not supported in this browser.');
-      setStatus('idle');
+      setStateSafe(CONV_STATE.ERROR);
       return;
     }
 
-    // Greet the user aloud first, then begin listening when the greeting ends.
-    if (!greetingSpokenRef.current && ttsSupported) {
-      greetingSpokenRef.current = true;
-      setStatus('speaking');
-      speak(INITIAL_MESSAGE.text);
-    } else {
-      const started = await startListening();
-      console.log('[CONV] startConversation direct startListening:', started);
-      if (started) setStatus('listening');
-      else setStatus('idle');
-    }
-  }, [isConversationStarted, sttSupported, ttsSupported, speak, startListening]);
+    setStateSafe(CONV_STATE.STARTING);
 
-  const sendTextMessage = useCallback(
-    (text) => {
-      console.log('[CONV] sendTextMessage:', text);
-      if (isEndedRef.current || isProcessingRef.current) return;
-      handleUserMessageRef.current?.(text, { isVoice: false });
-    },
-    []
-  );
+    if (!greetingPlayedRef.current && ttsSupported) {
+      greetingPlayedRef.current = true;
+      setStateSafe(CONV_STATE.AI_GREETING);
+      // DON'T pauseListening() here — STT hasn't started yet.
+      // The pause/resume logic in useSpeechRecognition handles TTS coordination.
+      speak(INITIAL_MESSAGE.text);
+      // TTS onEnd will call handleSpeechEnd → resumeListening() → startListening()
+    } else {
+      setStateSafe(CONV_STATE.LISTENING);
+      await startListening();
+    }
+  }, [sttSupported, ttsSupported, speak, startListening, clearSttError, setStateSafe]);
+
+  const sendTextMessage = useCallback((text) => {
+    log('sendTextMessage:', text);
+    if (isEndedRef.current || isProcessingRef.current) return;
+    processUserMessage(text, false);
+  }, [processUserMessage]);
 
   const toggleMic = useCallback(async () => {
-    console.log('[CONV] toggleMic, isMicMuted:', isMicMuted);
+    log('toggleMic, current mute:', isMicMuted);
     if (isEndedRef.current) return;
 
-    if (isMicMutedRef.current) {
-      // Unmute
+    if (isMicMuted) {
       setIsMicMuted(false);
-      if (isSpeakingRef.current) {
-        setStatus('speaking');
-      } else {
-        const started = await startListening();
-        console.log('[CONV] unmute startListening:', started);
-        if (started) setStatus('listening');
-        else setStatus('idle');
+      if (isTtsSpeaking) {
+        setStateSafe(CONV_STATE.AI_SPEAKING);
+      } else if (!isEndedRef.current) {
+        setStateSafe(CONV_STATE.LISTENING);
+        await startListening();
       }
     } else {
-      // Mute
       setIsMicMuted(true);
       stopListening();
       stopSpeaking();
-      setStatus('muted');
+      setStateSafe(CONV_STATE.MUTED);
     }
-  }, [startListening, stopListening, stopSpeaking]);
+  }, [isMicMuted, isTtsSpeaking, startListening, stopListening, stopSpeaking, setStateSafe]);
 
   const toggleChat = useCallback(() => {
     setIsChatOpen((prev) => !prev);
   }, []);
 
   const endCall = useCallback(() => {
-    console.log('[CONV] endCall');
+    log('endCall');
     isEndedRef.current = true;
     isProcessingRef.current = false;
-    greetingSpokenRef.current = false;
+    greetingPlayedRef.current = false;
     stopListening();
     stopSpeaking();
+    endListening();
     setIsMicMuted(false);
-    setIsConversationStarted(false);
     setIsChatOpen(false);
-    setStatus('ended');
+    setRecognitionError(null);
     setMessages([INITIAL_MESSAGE]);
-  }, [stopListening, stopSpeaking]);
+    setStateSafe(CONV_STATE.ENDED);
+  }, [stopListening, stopSpeaking, endListening, setStateSafe]);
+
+  // ==========================================
+  // Derived State
+  // ==========================================
+  const isListening = state === CONV_STATE.LISTENING || state === CONV_STATE.USER_SPEAKING;
+  const isThinking = state === CONV_STATE.THINKING;
+  const isSpeaking = state === CONV_STATE.AI_SPEAKING || state === CONV_STATE.AI_GREETING;
 
   return {
     messages,
-    status,
-    isConversationStarted,
+    state,
+    isConversationStarted: state !== CONV_STATE.IDLE && state !== CONV_STATE.ENDED,
     isMicMuted,
     isChatOpen,
     isListening,
     isSpeaking,
-    isThinking: status === 'thinking',
+    isThinking,
     sttSupported,
     ttsSupported,
+    sttPermissionState: permissionState,
+    sttState,
     recognitionError,
     startConversation,
     sendTextMessage,
     toggleMic,
     toggleChat,
     endCall,
-    setStatus,
+    setState: setStateSafe,
   };
 };
+
+export { CONV_STATE, INITIAL_MESSAGE };
