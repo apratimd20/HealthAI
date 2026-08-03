@@ -1,18 +1,18 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { IoMicOutline, IoMicOffOutline, IoHourglassOutline, IoVolumeHighOutline, IoCallOutline } from 'react-icons/io5';
+import {
+  IoMicOutline,
+  IoMicOffOutline,
+  IoHourglassOutline,
+  IoVolumeHighOutline,
+  IoCallOutline,
+} from 'react-icons/io5';
 
 /**
- * Status pill that reflects the current conversation state:
- * Listening / Thinking / Doctor is speaking / Microphone muted / Call ended.
+ * Status pill that reflects the current conversation state.
+ * The idle state is intentionally hidden.
  */
 const STATUS_CONFIG = {
-  idle: {
-    label: 'Tap the mic to begin',
-    icon: <IoMicOutline size={14} />,
-    color: 'text-slate-300',
-    border: 'border-slate-700 bg-slate-800/80',
-  },
   listening: {
     label: 'Listening...',
     icon: <IoMicOutline size={14} />,
@@ -20,12 +20,14 @@ const STATUS_CONFIG = {
     border: 'border-rose-500/50 bg-rose-500/10',
     pulse: true,
   },
+
   thinking: {
     label: 'Thinking...',
     icon: <IoHourglassOutline size={14} />,
     color: 'text-amber-200',
     border: 'border-amber-400/50 bg-amber-500/10',
   },
+
   speaking: {
     label: 'Doctor is speaking...',
     icon: <IoVolumeHighOutline size={14} />,
@@ -33,12 +35,14 @@ const STATUS_CONFIG = {
     border: 'border-emerald-500/50 bg-emerald-500/10',
     pulse: true,
   },
+
   muted: {
     label: 'Microphone muted',
     icon: <IoMicOffOutline size={14} />,
     color: 'text-slate-400',
     border: 'border-slate-600 bg-slate-800/80',
   },
+
   ended: {
     label: 'Call ended',
     icon: <IoCallOutline size={14} />,
@@ -48,7 +52,17 @@ const STATUS_CONFIG = {
 };
 
 const ConversationStatus = ({ status }) => {
-  const config = STATUS_CONFIG[status] || STATUS_CONFIG.idle;
+  // Hide completely when idle or invalid
+  if (!status || status === 'idle') {
+    return null;
+  }
+
+  const config = STATUS_CONFIG[status];
+
+  // Unknown status? Don't render anything.
+  if (!config) {
+    return null;
+  }
 
   return (
     <AnimatePresence mode="wait">
@@ -61,13 +75,21 @@ const ConversationStatus = ({ status }) => {
         className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 text-xs font-semibold ${config.border} ${config.color}`}
       >
         <motion.span
-          animate={config.pulse ? { opacity: [1, 0.4, 1] } : {}}
-          transition={config.pulse ? { duration: 1.2, repeat: Infinity } : {}}
           className="flex items-center"
+          animate={config.pulse ? { opacity: [1, 0.4, 1] } : {}}
+          transition={
+            config.pulse
+              ? {
+                  duration: 1.2,
+                  repeat: Infinity,
+                }
+              : {}
+          }
         >
           {config.icon}
         </motion.span>
-        {config.label}
+
+        <span>{config.label}</span>
       </motion.div>
     </AnimatePresence>
   );
