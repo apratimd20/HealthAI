@@ -7,12 +7,12 @@ import { IoMicOutline, IoMicOffOutline, IoHourglassOutline, IoVolumeHighOutline,
  * Listening / Thinking / Doctor is speaking / Microphone muted / Call ended.
  */
 const STATUS_CONFIG = {
-  // idle: {
-  //   label: 'Tap the mic to begin',
-  //   icon: <IoMicOutline size={14} />,
-  //   color: 'text-slate-300',
-  //   border: 'border-slate-700 bg-slate-800/80',
-  // },
+  idle: {
+    label: 'Tap the mic to begin',
+    icon: <IoMicOutline size={14} />,
+    color: 'text-slate-300',
+    border: 'border-slate-700 bg-slate-800/80',
+  },
   listening: {
     label: 'Listening...',
     icon: <IoMicOutline size={14} />,
