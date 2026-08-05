@@ -1,0 +1,26 @@
+name: Keep Render Backend Alive
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+
+  workflow_dispatch:
+
+jobs:
+  keep-alive:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Ping Backend
+        run: |
+          echo "Pinging backend..."
+          curl --fail --silent --show-error \
+          https://healthai-1-vcly.onrender.com/
+
+      - name: Success
+        if: success()
+        run: echo "Backend is alive"
+
+      - name: Failed
+        if: failure()
+        run: echo "Backend is down"
