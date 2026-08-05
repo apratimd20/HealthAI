@@ -132,7 +132,7 @@ export default function Dashboard() {
   const handleGoalSuccess = async () => {
     updateGoalStatus(true);
     setRefreshKey((k) => k + 1);
-    await fetchDashboardData();
+    await fetchDashboardData(true);
   };
 
   const handleCancelSuccess = async () => {
@@ -140,7 +140,7 @@ export default function Dashboard() {
     setPlan(null);
     setGoal(null);
     setRefreshKey((k) => k + 1);
-    await fetchDashboardData();
+    await fetchDashboardData(true);
   };
 
   // ✅ Handle scan completion - update daily totals

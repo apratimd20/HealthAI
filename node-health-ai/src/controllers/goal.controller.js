@@ -190,8 +190,8 @@ export const setGoal = async (req, res) => {
       });
     }
 
-    // ============ DEACTIVATE PREVIOUS GOAL ============
-    await Goal.findOneAndUpdate(
+    // ============ DEACTIVATE PREVIOUS GOAL(S) ============
+    await Goal.updateMany(
       {
         user: req.user._id,
         status: "active",
@@ -328,7 +328,7 @@ export const getActiveGoal = async (req, res) => {
 
 export const cancelGoal = async (req, res) => {
   try {
-    const goal = await Goal.findOneAndUpdate(
+    const result = await Goal.updateMany(
       {
         user: req.user._id,
         status: "active",
@@ -336,11 +336,10 @@ export const cancelGoal = async (req, res) => {
       {
         status: "inactive",
         deactivatedAt: new Date(),
-      },
-      { new: true }
+      }
     );
 
-    if (!goal) {
+    if (result.matchedCount === 0) {
       return res.status(404).json({
         success: false,
         message: "No active goal found to cancel",
@@ -350,7 +349,7 @@ export const cancelGoal = async (req, res) => {
     return res.status(200).json({
       success: true,
       message: "Goal cancelled successfully",
-      data: goal,
+      data: { modifiedCount: result.modifiedCount },
     });
   } catch (error) {
     return res.status(500).json({
