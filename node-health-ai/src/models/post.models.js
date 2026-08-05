@@ -5,7 +5,23 @@ const postSchema = new mongoose.Schema(
     user: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
-      required: true,
+      // Optional so administrators can create posts without a user account.
+      required: false,
+      default: null,
+    },
+    title: {
+      type: String,
+      maxlength: 200,
+    },
+    createdBy: {
+      type: String,
+      enum: ['user', 'admin'],
+      default: 'user',
+    },
+    authorName: {
+      type: String,
+      maxlength: 120,
+      default: null,
     },
     image: {
       type: String,
@@ -60,7 +76,7 @@ const postSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ['active', 'deleted'],
+      enum: ['active', 'hidden', 'deleted'],
       default: 'active',
     },
   },
@@ -69,7 +85,12 @@ const postSchema = new mongoose.Schema(
 
 // Indexes for faster queries
 postSchema.index({ user: 1, createdAt: -1 });
+postSchema.index({ status: 1, createdAt: -1 });
 postSchema.index({ createdAt: -1 });
-postSchema.index({ foodName: 'text' });
+postSchema.index({ title: 'text', content: 'text', caption: 'text', foodName: 'text' });
+
+postSchema.virtual('postId').get(function () {
+  return this._id;
+});
 
 export default mongoose.model('Post', postSchema);

@@ -24,10 +24,31 @@ const userSchema = new mongoose.Schema({
         enum: ['user', 'admin'],
         default: 'user',
     },
+    status: {
+        type: String,
+        enum: ['active', 'suspended'],
+        default: 'active',
+    },
+    profileImage: {
+        type: String,
+        default: null,
+    },
+    lastActiveAt: {
+        type: Date,
+        default: null,
+    },
+    suspendedAt: {
+        type: Date,
+        default: null,
+    },
 },
 {
     timestamps:true
 })
+
+userSchema.index({ role: 1, status: 1 });
+userSchema.index({ createdAt: -1 });
+userSchema.index({ email: 1 });
 
 
 

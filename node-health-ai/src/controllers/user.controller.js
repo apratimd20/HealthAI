@@ -1,5 +1,6 @@
 
 import User from "../models/user.models.js"
+import ActivityEvent from "../models/activityEvent.model.js"
 import jwt from 'jsonwebtoken'
 
 
@@ -83,6 +84,12 @@ export const loginUser = async (req, res) => {
             )
         }
 
+        if (isExist.status === 'suspended') {
+            return res.status(403).json({
+                success: false,
+                message: "Your account has been suspended. Please contact support."
+            })
+        }
 
         const isMatch = await isExist.comparePassword(password);
 
@@ -95,6 +102,16 @@ export const loginUser = async (req, res) => {
         }
        const token = generateToken(isExist);
 
+        // Record a login event for analytics (non-blocking).
+        ActivityEvent.create({
+            user: isExist._id,
+            type: 'login',
+            meta: { role: isExist.role },
+        }).catch(() => {});
+
+        isExist.lastActiveAt = new Date();
+        await isExist.save().catch(() => {});
+
         return res.status(200).json(
             {
              success:true,
@@ -105,6 +122,7 @@ export const loginUser = async (req, res) => {
                 name: isExist.name,
                 email: isExist.email,
                 role: isExist.role,
+                status: isExist.status,
              }
             }
         )
@@ -135,6 +153,8 @@ export const userProfile = async (req, res) => {
                 name: req.user.name,
                 email: req.user.email,
                 role: req.user.role || 'user',
+                status: req.user.status || 'active',
+                lastActiveAt: req.user.lastActiveAt || null,
             },
         });
     } catch (error) {

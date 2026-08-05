@@ -2,6 +2,7 @@
 import Goal from "../models/goal.models.js";
 import User from "../models/user.models.js";
 import { generateChatResponse, generateDoctorResponse, generateHealthChatStream } from "../services/chat.services.js";
+import { recordChatMessage } from "../services/conversation.services.js";
 
 // Regular (non-streaming) chat
 export const chatWithAI = async (req, res) => {
@@ -21,7 +22,23 @@ export const chatWithAI = async (req, res) => {
             status: "active",
         });
 
+        const startedAt = Date.now();
+        await recordChatMessage({
+            user: req.user._id,
+            type: 'general',
+            role: 'user',
+            content: message,
+        }).catch(() => {});
+
         const response = await generateChatResponse(message, user, goal, history);
+
+        await recordChatMessage({
+            user: req.user._id,
+            type: 'general',
+            role: 'assistant',
+            content: response?.message || '',
+            responseTimeMs: Date.now() - startedAt,
+        }).catch(() => {});
 
         return res.status(200).json({
             success: true,
@@ -54,12 +71,28 @@ export const chatWithAIStream = async (req, res) => {
             status: "active",
         });
 
+        const startedAt = Date.now();
+        await recordChatMessage({
+            user: req.user._id,
+            type: 'general',
+            role: 'user',
+            content: message,
+        }).catch(() => {});
+
         res.setHeader('Content-Type', 'text/event-stream');
         res.setHeader('Cache-Control', 'no-cache');
         res.setHeader('Connection', 'keep-alive');
         res.setHeader('X-Accel-Buffering', 'no');
 
-        await generateHealthChatStream(message, user, goal, history, res);
+        await generateHealthChatStream(message, user, goal, history, res, (fullText) => {
+          recordChatMessage({
+            user: req.user._id,
+            type: 'general',
+            role: 'assistant',
+            content: fullText || '',
+            responseTimeMs: Date.now() - startedAt,
+          }).catch(() => {});
+        });
 
     } catch (error) {
         console.error('Stream chat error:', error);
@@ -98,7 +131,23 @@ export const chatWithDoctorAI = async (req, res) => {
             })).filter((entry) => entry.content)
             : [];
 
+        const startedAt = Date.now();
+        await recordChatMessage({
+            user: req.user._id,
+            type: 'doctor',
+            role: 'user',
+            content: message,
+        }).catch(() => {});
+
         const response = await generateDoctorResponse(message, user, goal, normalizedHistory);
+
+        await recordChatMessage({
+            user: req.user._id,
+            type: 'doctor',
+            role: 'assistant',
+            content: response?.message || '',
+            responseTimeMs: Date.now() - startedAt,
+        }).catch(() => {});
 
         return res.status(200).json({
             success: true,

@@ -1,5 +1,6 @@
 import cron from 'node-cron';
 import { sendTimedNotifications } from '../controllers/notification.controller.js';
+import { finalizeStaleConversations } from '../services/conversation.services.js';
 
 // Only start cron if not in test environment
 if (process.env.NODE_ENV !== 'test') {
@@ -23,7 +24,19 @@ if (process.env.NODE_ENV !== 'test') {
     }
   });
 
-  console.log('Cron job scheduled for timed notifications (hourly)');
+  // Close + analyze conversations idle for 15+ minutes every 30 minutes.
+  cron.schedule('*/30 * * * *', async () => {
+    try {
+      const finalized = await finalizeStaleConversations();
+      if (finalized > 0) {
+        console.log(`Finalized ${finalized} stale conversations`);
+      }
+    } catch (error) {
+      console.error('Conversation finalize cron error:', error);
+    }
+  });
+
+  console.log('Cron jobs scheduled (timed notifications hourly, conversation finalize every 30m)');
 } else {
   console.log('Cron job disabled in test environment');
 }

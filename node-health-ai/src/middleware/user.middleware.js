@@ -51,7 +51,21 @@ export const authUser = async (req, res, next) => {
         }
 
         console.log('👤 User authenticated:', user.email, 'role:', user.role);
-        
+
+        // Block suspended accounts from using protected routes.
+        if (user.status === 'suspended') {
+            return res.status(403).json({
+                success: false,
+                message: 'Your account has been suspended. Please contact support.',
+            });
+        }
+
+        // Throttle last-active writes to avoid a DB write on every request.
+        if (!user.lastActiveAt || Date.now() - new Date(user.lastActiveAt).getTime() > 10 * 60 * 1000) {
+            user.lastActiveAt = new Date();
+            await user.save().catch(() => {});
+        }
+
         // Attach user to request
         req.user = user;
         next();

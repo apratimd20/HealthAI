@@ -78,7 +78,7 @@ export async function groqChat(prompt, systemPrompt, history = []) {
  * @param {object} res  Express response object
  * @returns {Promise<boolean>}  true if streaming succeeded
  */
-export async function groqChatStream(prompt, systemPrompt, history, res) {
+export async function groqChatStream(prompt, systemPrompt, history, res, onComplete) {
     const client = getGroqClient();
     if (!client) return false;
 
@@ -119,6 +119,7 @@ export async function groqChatStream(prompt, systemPrompt, history, res) {
         })}\n\n`);
         res.write(`event: done\ndata: ${JSON.stringify({ message: 'Response complete' })}\n\n`);
         res.end();
+        if (typeof onComplete === 'function') onComplete(fullResponse);
         return true;
     } catch (error) {
         console.error('❌ Groq stream error:', error.message);

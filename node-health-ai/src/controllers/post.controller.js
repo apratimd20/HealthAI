@@ -1,15 +1,24 @@
 // controllers/post.controller.js
 import Post from '../models/post.models.js';
 import User from '../models/user.models.js';
+import ActivityEvent from '../models/activityEvent.model.js';
 import cloudinary from '../config/cloudinary.js';
 import fs from 'fs';
+
+// Resolve a post's display author whether it was created by a user or an admin.
+const resolveAuthorName = (post) => {
+  if (post.createdBy === 'admin') {
+    return post.authorName || 'Health AI';
+  }
+  return post.user?.name || post.authorName || 'Unknown User';
+};
 
 // ============================================================
 // CREATE POST
 // ============================================================
 export const createPost = async (req, res) => {
   try {
-    const { content, caption, foodName, nutrition, isPublic } = req.body;
+    const { content, caption, foodName, title, nutrition, isPublic } = req.body;
 
     let imageUrl = null;
 
@@ -40,6 +49,8 @@ export const createPost = async (req, res) => {
     // Create post
     const post = await Post.create({
       user: req.user._id,
+      createdBy: 'user',
+      title: title || '',
       image: imageUrl,
       content: content || '',
       caption: caption || '',
@@ -50,11 +61,15 @@ export const createPost = async (req, res) => {
 
     // Populate user info
     await post.populate('user', 'name email profileImage');
+    const postObj = post.toObject();
+    postObj.authorName = resolveAuthorName(post);
+
+    ActivityEvent.create({ user: req.user._id, type: 'community_post' }).catch(() => {});
 
     return res.status(201).json({
       success: true,
       message: 'Post created successfully',
-      data: post,
+      data: postObj,
     });
 
   } catch (error) {
@@ -107,6 +122,7 @@ export const getFeed = async (req, res) => {
       postObj.isLiked = post.likes?.includes(req.user._id) || false;
       postObj.likesCount = post.likes?.length || 0;
       postObj.commentsCount = post.comments?.length || 0;
+      postObj.authorName = resolveAuthorName(post);
       return postObj;
     });
 
@@ -158,6 +174,7 @@ export const getUserPosts = async (req, res) => {
             postObj.isLiked = post.likes?.includes(req.user._id) || false;
             postObj.likesCount = post.likes?.length || 0;
             postObj.commentsCount = post.comments?.length || 0;
+            postObj.authorName = resolveAuthorName(post);
             return postObj;
         });
 
@@ -199,6 +216,7 @@ export const getPost = async (req, res) => {
     postObj.isLiked = post.likes?.includes(req.user._id) || false;
     postObj.likesCount = post.likes?.length || 0;
     postObj.commentsCount = post.comments?.length || 0;
+    postObj.authorName = resolveAuthorName(post);
 
     return res.status(200).json({
       success: true,
@@ -247,6 +265,8 @@ export const toggleLike = async (req, res) => {
     }
 
     await post.save();
+
+    ActivityEvent.create({ user: req.user._id, type: 'community_like' }).catch(() => {});
 
     return res.status(200).json({
       success: true,
@@ -315,6 +335,8 @@ export const addComment = async (req, res) => {
 
     const newComment = populatedPost.comments[populatedPost.comments.length - 1];
 
+    ActivityEvent.create({ user: req.user._id, type: 'community_comment' }).catch(() => {});
+
     return res.status(201).json({
       success: true,
       message: 'Comment added successfully',
@@ -363,8 +385,8 @@ export const deleteComment = async (req, res) => {
     // Check if user owns the comment or the post
     const comment = post.comments[commentIndex];
     if (
-      comment.user.toString() !== req.user._id.toString() &&
-      post.user.toString() !== req.user._id.toString()
+      comment.user?.toString() !== req.user._id.toString() &&
+      post.user?.toString() !== req.user._id.toString()
     ) {
       return res.status(403).json({
         success: false,
@@ -455,7 +477,18 @@ export const getTrendingPosts = async (req, res) => {
           as: 'user',
         },
       },
-      { $unwind: '$user' },
+      { $unwind: { path: '$user', preserveNullAndEmptyArrays: true } },
+      {
+        $addFields: {
+          authorName: {
+            $cond: [
+              { $eq: ['$createdBy', 'admin'] },
+              { $ifNull: ['$authorName', 'Health AI'] },
+              { $ifNull: ['$user.name', 'Unknown User'] },
+            ],
+          },
+        },
+      },
       {
         $project: {
           'user.password': 0,

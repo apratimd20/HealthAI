@@ -98,13 +98,13 @@ export const generateChatResponse = async (message, user, goal, history = []) =>
     };
 };
 
-export const generateHealthChatStream = async (message, user, goal, history = [], res) => {
+export const generateHealthChatStream = async (message, user, goal, history = [], res, onComplete) => {
     const systemPrompt = getSystemPrompt(user, goal);
     const messages = buildMessages(systemPrompt, history, message);
 
     // ✅ Try Groq streaming first
     try {
-        const groqSucceeded = await groqChatStream(message, systemPrompt, history, res);
+        const groqSucceeded = await groqChatStream(message, systemPrompt, history, res, onComplete);
         if (groqSucceeded) return;
     } catch (e) {
         console.warn('⚠️ Groq stream unavailable, trying OpenAI:', e.message);
@@ -143,6 +143,7 @@ export const generateHealthChatStream = async (message, user, goal, history = []
     })}\n\n`);
     res.write(`event: done\ndata: ${JSON.stringify({ message: 'Response complete' })}\n\n`);
     res.end();
+    if (typeof onComplete === 'function') onComplete(fullResponse);
 };
 
 function getDoctorSystemPrompt(user, goal) {
