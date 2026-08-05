@@ -9,7 +9,14 @@ const Register = lazy(() => import('../pages/Register'));
 const Dashboard = lazy(() => import('../pages/Dashboard'));
 const Feed = lazy(() => import('../pages/Feed'));
 const TalkWithDoctorPage = lazy(() => import('../pages/TalkWithDoctor/TalkWithDoctorPage'));
-const AdminPanel = lazy(() => import('../pages/AdminPanel'));
+const AdminLayout = lazy(() => import('../pages/admin/AdminLayout'));
+const AdminDashboard = lazy(() => import('../pages/admin/AdminDashboard'));
+const AdminUsers = lazy(() => import('../pages/admin/AdminUsers'));
+const AdminCommunity = lazy(() => import('../pages/admin/AdminCommunity'));
+const AdminAnalytics = lazy(() => import('../pages/admin/AdminAnalytics'));
+const AdminConversationDetail = lazy(() => import('../pages/admin/AdminConversationDetail'));
+const AdminReports = lazy(() => import('../pages/admin/AdminReports'));
+const AdminSettings = lazy(() => import('../pages/admin/AdminSettings'));
 
 const routeFallback = (
   <div className="flex min-h-screen items-center justify-center bg-surface-base px-4">
@@ -53,10 +60,18 @@ export default function AppRouter() {
           path="/admin"
           element={
             <AdminRoute>
-              <AdminPanel />
+              <AdminLayout />
             </AdminRoute>
           }
-        />
+        >
+          <Route index element={<AdminDashboard />} />
+          <Route path="users" element={<AdminUsers />} />
+          <Route path="community" element={<AdminCommunity />} />
+          <Route path="analytics" element={<AdminAnalytics />} />
+          <Route path="analytics/:id" element={<AdminConversationDetail />} />
+          <Route path="reports" element={<AdminReports />} />
+          <Route path="settings" element={<AdminSettings />} />
+        </Route>
 
         <Route
           path="/feed"

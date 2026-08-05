@@ -1,6 +1,12 @@
 // controllers/food.controller.js
 import fs from 'fs';
+import ActivityEvent from '../models/activityEvent.model.js';
 import { analyseFoodImage, analyseFoodImageStream } from '../services/ai.service.js';
+
+// Record a food scan event for admin analytics (non-blocking).
+const recordScan = (userId, meta) => {
+  ActivityEvent.create({ user: userId, type: 'food_scan', meta }).catch(() => {});
+};
 
 export const analyseFood = async (req, res) => {
     try {
@@ -18,6 +24,7 @@ export const analyseFood = async (req, res) => {
         const result = await analyseFoodImage(imagePath);
 
         if (result && result.success) {
+            recordScan(req.user?._id, { foodName: result.data?.name || null, source: result.source });
             return res.status(200).json({
                 success: true,
                 data: result.data,
@@ -69,6 +76,7 @@ export const analyseFoodStream = async (req, res) => {
 
         // ✅ Native food image scanning using Groq/Gemini pipeline
         await analyseFoodImageStream(imagePath, res);
+        recordScan(req.user?._id, { stream: true });
 
     } catch (error) {
         console.error('❌ Stream analysis error:', error);
