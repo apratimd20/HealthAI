@@ -16,6 +16,7 @@ import NotificationOverlay from '../components/ui/NotificationOverlay';
 import ScannerModal from '../components/ScannerModal';
 import ChatWidget from '../components/ChatWidget';
 import { motion } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
 import { staggerContainer, staggerItem } from '../animations/variants';
 import {
   IoFlameOutline,
@@ -31,11 +32,13 @@ import {
   IoLockClosedOutline,
   IoArrowForward,
   IoFitnessOutline,
+  IoMedicalOutline,
 } from 'react-icons/io5';
 import toast from 'react-hot-toast';
 import { notificationService } from '../services/notificationService';
 
 export default function Dashboard() {
+  const navigate = useNavigate();
   const { updateGoalStatus } = useAuth();
   const [loading, setLoading] = useState(true);
   const [plan, setPlan] = useState(null);
@@ -281,6 +284,29 @@ export default function Dashboard() {
 
       <NotificationOverlay refreshTrigger={refreshKey} />
 
+      {/* Talk with AI Doctor — Floating Action Button */}
+      <motion.button
+        onClick={() => navigate('/doctor')}
+        initial={{ opacity: 0, scale: 0.8, y: 20 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        transition={{ type: 'spring', stiffness: 260, damping: 20, delay: 0.6 }}
+        whileHover={{ scale: 1.08 }}
+        whileTap={{ scale: 0.95 }}
+        className="fixed bottom-6 right-6 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-emerald-500 text-slate-950 shadow-[0_12px_40px_rgba(16,185,129,0.45)] transition-all duration-300 hover:shadow-[0_16px_50px_rgba(16,185,129,0.6)] hover:bg-emerald-400 sm:bottom-8 sm:right-8 lg:bottom-10 lg:right-10"
+        aria-label="Talk with AI Doctor"
+        title="Talk with AI Doctor"
+      >
+        <IoMedicalOutline size={26} />
+        <motion.span
+          className="absolute -right-10 -top-1/2 hidden sm:block whitespace-nowrap rounded-lg bg-slate-900/90 px-3 py-1.5 text-xs font-medium text-slate-100 shadow-lg ring-1 ring-slate-700/50"
+          initial={{ opacity: 0, x: 8 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ delay: 0.8, duration: 0.2 }}
+        >
+          Talk with AI Doctor
+        </motion.span>
+      </motion.button>
+
       <GoalModal
         isOpen={goalModalOpen}
         onClose={() => setGoalModalOpen(false)}
@@ -361,14 +387,18 @@ export default function Dashboard() {
               <Card
                 key={option.id}
                 hoverable={!option.disabled}
-                glow={option.primary}
+                glow={option.primary || option.featured}
                 className={`flex h-full flex-col items-start gap-3 text-left ${
                   option.disabled ? 'opacity-60 cursor-not-allowed' : ''
-                } ${option.locked ? 'border-dashed' : ''}`}
+                } ${option.locked ? 'border-dashed' : ''} ${
+                  option.featured ? 'border-emerald-400/40 bg-gradient-to-br from-emerald-500/10 via-surface to-surface' : ''
+                }`}
                 onClick={option.disabled ? undefined : option.action}
               >
                 <div className={`flex h-12 w-12 items-center justify-center rounded-xl ${
-                  option.id === 'ai-chat' || option.id === 'food-scan' ? 'bg-brand/20 text-brand' : 'bg-surface-muted'
+                  option.id === 'ai-chat' || option.id === 'food-scan' ? 'bg-brand/20 text-brand'
+                  : option.featured ? 'bg-emerald-500/15 text-emerald-300'
+                  : 'bg-surface-muted'
                 }`}>
                   {option.icon}
                 </div>
@@ -387,6 +417,10 @@ export default function Dashboard() {
                   <span className="text-xs font-medium uppercase tracking-wide text-fg-subtle">
                     Coming soon
                   </span>
+                ) : option.id === 'ai-doctor' ? (
+                  <Button size="sm" variant="secondary" onClick={() => navigate('/doctor')}>
+                    Open Doctor
+                  </Button>
                 ) : option.id === 'food-scan' ? (
                   <Button size="sm" onClick={() => setIsScannerOpen(true)}>
                     <IoCameraOutline size={14} />
@@ -500,6 +534,24 @@ export default function Dashboard() {
 
             <div className="space-y-6">
               <GoalSummary goalData={goal} onUpdateGoal={() => setGoalModalOpen(true)} />
+
+              {/* ✅ Talk with AI Doctor Card (featured) */}
+              {/* <Card 
+                className="group flex flex-col items-start gap-3 cursor-pointer transition-all border-emerald-400/40 bg-gradient-to-br from-emerald-500/10 via-surface to-surface hover:border-emerald-400/40 hover:shadow-[0_0_20px_rgba(16,185,129,0.12)]" 
+                glow
+                onClick={() => navigate('/doctor')}
+              >
+                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-500/15 text-emerald-300 transition-all group-hover:scale-105">
+                  <IoMedicalOutline size={24} />
+                </div>
+                <h3 className="text-lg font-bold text-fg">Talk with AI Doctor</h3>
+                <p className="text-sm leading-relaxed text-fg-muted">
+                  Have a natural voice conversation with an AI health assistant.
+                </p>
+                <Button size="sm" variant="secondary" onClick={() => navigate('/doctor')}>
+                  Open Doctor
+                </Button>
+              </Card> */}
 
               {/* ✅ Food Scanner Card */}
               <Card 

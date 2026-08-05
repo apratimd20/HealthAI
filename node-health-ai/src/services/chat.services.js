@@ -145,6 +145,104 @@ export const generateHealthChatStream = async (message, user, goal, history = []
     res.end();
 };
 
+function getDoctorSystemPrompt(user, goal) {
+    let goalContext = '';
+    let userContext = '';
+
+    if (goal) {
+        goalContext = `
+User Health Context (background info — do NOT mention unless user asks):
+- Goal: ${goal.goal} weight (${goal.targetWeight}kg target)
+- Age: ${goal.age} years
+- Gender: ${goal.gender}
+- Height: ${goal.height}cm
+- Current Weight: ${goal.weight}kg
+- Activity Level: ${goal.activityLevel}
+- Diet Preference: ${goal.foodPreference}
+- Sleep Target: ${goal.sleepHours} hours
+- Exercise Days: ${goal.exerciseDays || 3} days/week
+${goal.medicalConditions?.length ? `- Medical Conditions: ${goal.medicalConditions.join(', ')}` : ''}
+${goal.allergies?.length ? `- Allergies: ${goal.allergies.join(', ')}` : ''}
+`;
+    }
+
+    if (user) {
+        userContext = `
+User Name: ${user.name || 'User'}
+Email: ${user.email}
+`;
+    }
+
+    return `You are an AI Health Assistant, not a real doctor.
+
+${userContext}
+${goalContext}
+
+Your role:
+- Act like a supportive, empathetic healthcare assistant
+- Ask follow-up questions to understand symptoms and concerns before giving suggestions
+- Gather relevant details such as symptoms, duration, severity, triggers, and any recent changes
+- Be calm, reassuring, and concise while maintaining professional tone
+- Never claim to be a licensed doctor or medical professional
+- Recommend consulting a qualified doctor or healthcare professional when symptoms are serious, persistent, worsening, or concerning
+- Encourage urgent medical attention for emergency symptoms such as chest pain, severe difficulty breathing, fainting, heavy bleeding, severe allergic reaction, or sudden confusion
+- If the user describes symptoms, suggest general wellness guidance and encourage professional evaluation when appropriate
+- Keep responses friendly, human, and not overly clinical
+- Do not diagnose definitively or promise treatment outcomes
+- Avoid stating that you are an actual doctor or replacing medical evaluation
+- Previous messages are part of the same conversation — stay consistent and context-aware
+
+IMPORTANT — User Health Context rules:
+- The user's health profile (goal, biometrics, preferences) is provided as BACKGROUND CONTEXT ONLY
+- Do NOT proactively mention the user's goal, weight, diet, exercise plan, or biometrics
+- ONLY reference this information if the user EXPLICITLY asks about their goal, plan, calories, macros, weight target, diet, or exercise
+- If the user asks a general health question, answer it as a general health assistant WITHOUT referencing their personal profile
+- Treat each conversation naturally — let the user guide what context is relevant
+
+The very first assistant message in a conversation should be: "Hello! I'm your AI Health Assistant. How are you feeling today?"
+
+If the user is not in an emergency situation, ask 1-2 concise follow-up questions and continue the conversation naturally.`;
+}
+
+export const generateDoctorResponse = async (message, user, goal, history = []) => {
+    const systemPrompt = getDoctorSystemPrompt(user, goal);
+    const normalizedHistory = (history || []).map((entry) => ({
+        role: entry.role === 'assistant' ? 'assistant' : 'user',
+        content: entry.content || entry.text || '',
+    })).filter((entry) => entry.content);
+
+    try {
+        const groqResponse = await groqChat(message, systemPrompt, normalizedHistory);
+        if (groqResponse) {
+            return {
+                message: groqResponse,
+                timestamp: new Date().toISOString(),
+                source: 'groq',
+            };
+        }
+    } catch (error) {
+        console.warn('⚠️ Doctor Groq request failed, trying OpenAI fallback:', error.message);
+    }
+
+    const openai = getOpenAIClient();
+    const response = await openai.chat.completions.create({
+        model: 'gpt-4o-mini',
+        messages: [
+            { role: 'system', content: systemPrompt },
+            ...normalizedHistory.slice(-10),
+            { role: 'user', content: message },
+        ],
+        temperature: 0.7,
+        max_tokens: 500,
+    });
+
+    return {
+        message: response.choices[0]?.message?.content || 'I am here to help. Could you tell me more about what you are feeling?',
+        timestamp: new Date().toISOString(),
+        source: 'openai',
+    };
+};
+
 // Get quick health tips (for suggestions)
 export const getQuickTips = async (goal) => {
     const tips = {
