@@ -1,16 +1,44 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 /**
+ * Clean markdown and special symbols from text so the voice speaks smoothly.
+ */
+function cleanTextForSpeech(text) {
+  if (!text) return '';
+  return text
+    .replace(/<think>[\s\S]*?<\/think>/gi, '') // Remove reasoning blocks
+    .replace(/```[\s\S]*?```/g, '') // Remove code blocks
+    .replace(/`([^`]+)`/g, '$1') // Inline code
+    .replace(/#{1,6}\s?/g, '') // Headings
+    .replace(/\*\*([^*]+)\*\*/g, '$1') // Bold
+    .replace(/\*([^*]+)\*/g, '$1') // Italic
+    .replace(/_{1,2}([^_]+)_{1,2}/g, '$1') // Underline/Italics
+    .replace(/\|[^\n]+\|/g, ' ') // Table rows
+    .replace(/[-*+]\s+/g, ' ') // Bullet points
+    .replace(/^\d+\.\s+/gm, ' ') // Numbered lists
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1') // Links
+    .replace(/[#*~`|>]/g, '') // Remaining markdown chars
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/**
+ * Check if text contains Devanagari (Hindi script) characters.
+ */
+function isHindiText(text) {
+  if (!text) return false;
+  // Unicode range for Devanagari script: 0900 - 097F
+  const devanagariRegex = /[\u0900-\u097F]/;
+  return devanagariRegex.test(text);
+}
+
+/**
  * Speech synthesis hook for the voice-first doctor conversation.
- *
- * Improvements over the previous implementation:
- * - Picks the most natural-sounding English voice available on the device.
- * - Exposes an `onEnd` callback (fired when speech completes or is interrupted)
- *   so the conversation can automatically resume listening.
- * - `speak` cancels any in-flight utterance before starting a new one.
+ * Automatically detects whether response is in Hindi or English and
+ * selects the best available native voice.
  */
 export const useSpeechSynthesis = ({
-  lang = 'en-US',
+  defaultLang = 'en-US',
   rate = 1,
   pitch = 1,
   onEnd,
@@ -28,19 +56,34 @@ export const useSpeechSynthesis = ({
     onEndRef.current = onEnd;
   }, [onEnd]);
 
-  const pickVoice = useCallback(() => {
+  const pickVoiceForLanguage = useCallback((isHindi) => {
+    if (!isSupported) return { voice: null, lang: 'en-US' };
     const voices = window.speechSynthesis.getVoices();
-    const preferred =
+
+    if (isHindi) {
+      // 1. Look for native Hindi voices (Google Hindi, Microsoft Swara/Hemant/Kalpana)
+      const hindiVoice =
+        voices.find((v) => /hindi|हिन्दी|swara|hemant|kalpana/i.test(v.name)) ||
+        voices.find((v) => v.lang === 'hi-IN' || v.lang === 'hi_IN' || v.lang?.toLowerCase().startsWith('hi')) ||
+        // 2. Fallback to Indian English (accustomed to Hindi phonetics)
+        voices.find((v) => v.lang === 'en-IN' || v.lang === 'en_IN' || /india|heera|neerja|ravi/i.test(v.name));
+
+      return { voice: hindiVoice || null, lang: 'hi-IN' };
+    }
+
+    // English voice selection
+    const englishVoice =
       voices.find((voice) =>
         /Google UK English Female|Samantha|Microsoft Aria|Google US English|Natural/i.test(
           voice.name
         )
       ) ||
-      voices.find((voice) => voice.lang === 'en-US') ||
+      voices.find((voice) => voice.lang === 'en-US' || voice.lang === 'en-GB') ||
       voices.find((voice) => voice.lang?.startsWith('en')) ||
       voices[0];
-    return preferred || null;
-  }, []);
+
+    return { voice: englishVoice || null, lang: 'en-US' };
+  }, [isSupported]);
 
   // Some browsers populate voices asynchronously; force a refresh.
   useEffect(() => {
@@ -60,14 +103,21 @@ export const useSpeechSynthesis = ({
 
       window.speechSynthesis.cancel();
 
-      const utterance = new SpeechSynthesisUtterance(text);
+      const cleanedText = cleanTextForSpeech(text);
+      if (!cleanedText) return false;
+
+      const isHindi = isHindiText(cleanedText);
+      const { voice, lang } = pickVoiceForLanguage(isHindi);
+
+      const utterance = new SpeechSynthesisUtterance(cleanedText);
       utterance.lang = lang;
-      utterance.rate = rate;
+      utterance.rate = isHindi ? 0.95 : rate; // Slightly relaxed pace for natural Hindi cadence
       utterance.pitch = pitch;
       utterance.volume = 1;
 
-      const voice = pickVoice();
-      if (voice) utterance.voice = voice;
+      if (voice) {
+        utterance.voice = voice;
+      }
 
       utterance.onstart = () => setIsSpeaking(true);
       utterance.onend = () => {
@@ -87,7 +137,7 @@ export const useSpeechSynthesis = ({
       setError(null);
       return true;
     },
-    [isSupported, lang, rate, pitch, pickVoice]
+    [isSupported, rate, pitch, pickVoiceForLanguage]
   );
 
   const stop = useCallback(() => {

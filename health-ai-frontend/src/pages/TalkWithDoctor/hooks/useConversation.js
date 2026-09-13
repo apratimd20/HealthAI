@@ -83,6 +83,7 @@ export const useConversation = () => {
     stopListening,
   } = useSpeechRecognition({
     enabled: true,
+    lang: 'hi-IN',
     onFinalResult: (transcript) => {
       console.log('[CONV] onFinalResult:', transcript);
       handleFinalResultRef.current?.(transcript);
