@@ -2,7 +2,7 @@
 import OpenAI from "openai";
 import { groqChat, groqChatStream } from "./groq.service.js";
 
-// ✅ Helper to get OpenAI client (with error handling)
+// Helper to get OpenAI client (with error handling)
 function getOpenAIClient() {
     const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) {
@@ -69,7 +69,7 @@ export const generateChatResponse = async (message, user, goal, history = []) =>
     const systemPrompt = getSystemPrompt(user, goal);
     const messages = buildMessages(systemPrompt, history, message);
 
-    // ✅ Try Groq first
+    // 1. Try Groq first
     try {
         const groqResponse = await groqChat(message, systemPrompt, history);
         if (groqResponse) {
@@ -83,26 +83,35 @@ export const generateChatResponse = async (message, user, goal, history = []) =>
         console.warn('⚠️ Groq unavailable, trying OpenAI:', e.message);
     }
 
-    // ✅ Try OpenAI as fallback
-    const openai = getOpenAIClient();
-    const response = await openai.chat.completions.create({
-        model: "gpt-4o-mini",
-        messages,
-        temperature: 0.7,
-        max_tokens: 300,
-    });
-    return {
-        message: response.choices[0].message.content,
-        timestamp: new Date().toISOString(),
-        source: "openai",
-    };
+    // 2. Try OpenAI as fallback
+    try {
+        const openai = getOpenAIClient();
+        const response = await openai.chat.completions.create({
+            model: "gpt-4o-mini",
+            messages,
+            temperature: 0.7,
+            max_tokens: 300,
+        });
+        return {
+            message: response.choices[0].message.content,
+            timestamp: new Date().toISOString(),
+            source: "openai",
+        };
+    } catch (err) {
+        console.warn('⚠️ OpenAI fallback unavailable:', err.message);
+        return {
+            message: "I am here to help you with your health and fitness goals. How can I assist you today?",
+            timestamp: new Date().toISOString(),
+            source: "offline-fallback",
+        };
+    }
 };
 
 export const generateHealthChatStream = async (message, user, goal, history = [], res, onComplete) => {
     const systemPrompt = getSystemPrompt(user, goal);
     const messages = buildMessages(systemPrompt, history, message);
 
-    // ✅ Try Groq streaming first
+    // 1. Try Groq streaming first
     try {
         const groqSucceeded = await groqChatStream(message, systemPrompt, history, res, onComplete);
         if (groqSucceeded) return;
@@ -110,40 +119,54 @@ export const generateHealthChatStream = async (message, user, goal, history = []
         console.warn('⚠️ Groq stream unavailable, trying OpenAI:', e.message);
     }
 
-    // ✅ Try OpenAI streaming
-    const openai = getOpenAIClient();
-    const stream = await openai.chat.completions.create({
-        model: "gpt-4o-mini",
-        messages,
-        temperature: 0.7,
-        max_tokens: 300,
-        stream: true,
-    });
+    // 2. Try OpenAI streaming
+    try {
+        const openai = getOpenAIClient();
+        const stream = await openai.chat.completions.create({
+            model: "gpt-4o-mini",
+            messages,
+            temperature: 0.7,
+            max_tokens: 300,
+            stream: true,
+        });
 
-    let fullResponse = '';
-    let chunkCount = 0;
+        let fullResponse = '';
+        let chunkCount = 0;
 
-    for await (const chunk of stream) {
-        const content = chunk.choices[0]?.delta?.content || '';
-        if (content) {
-            fullResponse += content;
-            chunkCount++;
-            res.write(`event: chunk\ndata: ${JSON.stringify({
-                chunk: content,
-                progress: Math.min(chunkCount * 2, 95)
-            })}\n\n`);
+        for await (const chunk of stream) {
+            const content = chunk.choices[0]?.delta?.content || '';
+            if (content) {
+                fullResponse += content;
+                chunkCount++;
+                res.write(`event: chunk\ndata: ${JSON.stringify({
+                    chunk: content,
+                    progress: Math.min(chunkCount * 2, 95)
+                })}\n\n`);
+            }
         }
-    }
 
-    res.write(`event: complete\ndata: ${JSON.stringify({
-        success: true,
-        message: fullResponse,
-        timestamp: new Date().toISOString(),
-        source: "openai"
-    })}\n\n`);
-    res.write(`event: done\ndata: ${JSON.stringify({ message: 'Response complete' })}\n\n`);
-    res.end();
-    if (typeof onComplete === 'function') onComplete(fullResponse);
+        res.write(`event: complete\ndata: ${JSON.stringify({
+            success: true,
+            message: fullResponse,
+            timestamp: new Date().toISOString(),
+            source: "openai"
+        })}\n\n`);
+        res.write(`event: done\ndata: ${JSON.stringify({ message: 'Response complete' })}\n\n`);
+        res.end();
+        if (typeof onComplete === 'function') onComplete(fullResponse);
+    } catch (err) {
+        console.error('❌ Both Groq and OpenAI streaming failed:', err.message);
+        const fallbackText = "I'm experiencing higher than usual traffic right now. Please try asking again in a moment!";
+        res.write(`event: complete\ndata: ${JSON.stringify({
+            success: true,
+            message: fallbackText,
+            timestamp: new Date().toISOString(),
+            source: "offline-fallback"
+        })}\n\n`);
+        res.write(`event: done\ndata: ${JSON.stringify({ message: 'Response complete' })}\n\n`);
+        res.end();
+        if (typeof onComplete === 'function') onComplete(fallbackText);
+    }
 };
 
 function getDoctorSystemPrompt(user, goal) {
@@ -192,6 +215,10 @@ Your role:
 - Do not diagnose definitively or promise treatment outcomes
 - Avoid stating that you are an actual doctor or replacing medical evaluation
 - Previous messages are part of the same conversation — stay consistent and context-aware
+- Language Matching: 
+  * If the user speaks or writes in Hindi or Hinglish, ALWAYS reply in pure Devanagari script (हिन्दी लिपि, e.g. "नमस्ते! आपकी तबीयत कैसी है?"), NEVER write Hindi using English letters (Hinglish). Writing in Devanagari script is MANDATORY so that the voice engine uses an authentic native Hindi accent.
+  * If the user speaks in English, reply in natural English.
+- Voice-Friendly Formatting: Since your responses are spoken aloud by a voice synthesizer, write in natural, conversational sentences and short paragraphs. Do NOT use markdown tables or complex symbols.
 
 IMPORTANT — User Health Context rules:
 - The user's health profile (goal, biometrics, preferences) is provided as BACKGROUND CONTEXT ONLY
@@ -200,7 +227,7 @@ IMPORTANT — User Health Context rules:
 - If the user asks a general health question, answer it as a general health assistant WITHOUT referencing their personal profile
 - Treat each conversation naturally — let the user guide what context is relevant
 
-The very first assistant message in a conversation should be: "Hello! I'm your AI Health Assistant. How are you feeling today?"
+The very first assistant message in a conversation should be: "Hello! I'm your AI Health Assistant. How are you feeling today?" (or in Hindi: "नमस्ते! मैं आपका AI Health Assistant हूँ। आज आपकी तबीयत कैसी है?")
 
 If the user is not in an emergency situation, ask 1-2 concise follow-up questions and continue the conversation naturally.`;
 }
@@ -212,6 +239,7 @@ export const generateDoctorResponse = async (message, user, goal, history = []) 
         content: entry.content || entry.text || '',
     })).filter((entry) => entry.content);
 
+    // 1. Try Groq first
     try {
         const groqResponse = await groqChat(message, systemPrompt, normalizedHistory);
         if (groqResponse) {
@@ -225,23 +253,33 @@ export const generateDoctorResponse = async (message, user, goal, history = []) 
         console.warn('⚠️ Doctor Groq request failed, trying OpenAI fallback:', error.message);
     }
 
-    const openai = getOpenAIClient();
-    const response = await openai.chat.completions.create({
-        model: 'gpt-4o-mini',
-        messages: [
-            { role: 'system', content: systemPrompt },
-            ...normalizedHistory.slice(-10),
-            { role: 'user', content: message },
-        ],
-        temperature: 0.7,
-        max_tokens: 500,
-    });
+    // 2. Try OpenAI fallback
+    try {
+        const openai = getOpenAIClient();
+        const response = await openai.chat.completions.create({
+            model: 'gpt-4o-mini',
+            messages: [
+                { role: 'system', content: systemPrompt },
+                ...normalizedHistory.slice(-10),
+                { role: 'user', content: message },
+            ],
+            temperature: 0.7,
+            max_tokens: 500,
+        });
 
-    return {
-        message: response.choices[0]?.message?.content || 'I am here to help. Could you tell me more about what you are feeling?',
-        timestamp: new Date().toISOString(),
-        source: 'openai',
-    };
+        return {
+            message: response.choices[0]?.message?.content || 'I am here to help. Could you tell me more about what you are feeling?',
+            timestamp: new Date().toISOString(),
+            source: 'openai',
+        };
+    } catch (openaiError) {
+        console.error('❌ OpenAI fallback failed:', openaiError.message);
+        return {
+            message: "I am here to assist with your health and wellness questions. If you are experiencing serious or persistent symptoms, please consult a healthcare professional. How else can I assist you right now?",
+            timestamp: new Date().toISOString(),
+            source: 'offline-fallback',
+        };
+    }
 };
 
 // Get quick health tips (for suggestions)

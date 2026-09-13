@@ -11,24 +11,37 @@ function getClient() {
     return groqClient;
 }
 
+const GROQ_MODELS = [
+    'qwen/qwen3.8-27b',
+    'groq/compound-mini',
+    'openai/gpt-oss-20b',
+    'qwen/qwen3.6-27b',
+];
+
 async function groqGenerate(prompt, systemPrompt) {
     const client = getClient();
     if (!client) return null;
-    try {
-        const res = await client.chat.completions.create({
-            model: 'llama-3.1-8b-instant',
-            messages: [
-                { role: 'system', content: systemPrompt },
-                { role: 'user', content: prompt }
-            ],
-            temperature: 0.7,
-            max_tokens: 800,
-        });
-        return res.choices[0]?.message?.content?.trim() || null;
-    } catch (e) {
-        console.error('Groq AI plan error:', e.message);
-        return null;
+    for (const model of GROQ_MODELS) {
+        try {
+            const res = await client.chat.completions.create({
+                model,
+                messages: [
+                    { role: 'system', content: systemPrompt },
+                    { role: 'user', content: prompt }
+                ],
+                temperature: 0.7,
+                max_tokens: 800,
+            });
+            let content = res.choices[0]?.message?.content?.trim() || null;
+            if (content) {
+                content = content.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
+                return content;
+            }
+        } catch (e) {
+            console.error(`Groq AI plan error on model ${model}:`, e.message);
+        }
     }
+    return null;
 }
 
 export async function getGoalSuggestions(age, gender, height, weight) {
